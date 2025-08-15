@@ -10,43 +10,46 @@ from .zero_handler import replace_zeros_with_none_in_sheet
 
 def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, header_columns_a, column_mapping):
     """
-    Process and transfer monthly data from Sheet A to Sheet B.
-    Includes data backup, clearing, copying, sorting, restoring styles,
-    applying formulas, font coloring, and replacing zeros.
+    Process & transfer monthly data (no-duplicate). 
+    - If (Company, Vessel name, End user) already exists in the month block of 'ITM Summary',
+      the row is refreshed (non-key columns cleared and refilled with latest values).
+    - New combos are appended.
+    - Styles for N–BI are preserved; for updated rows, only styles are restored (not old values).
     """
+
     print(f"⏳ Processing month {month_abbreviation.upper()}...")
 
-    # --- Locate the start row in Sheet B based on month abbreviation ---
+    # --- Locate the start row (month block) in Sheet B ---
     cut_start_row = None
     for row in range(1, sheet_b.max_row + 1):
         cell_val = sheet_b.cell(row=row, column=2).value
         if cell_val and isinstance(cell_val, str) and cell_val.strip().lower().startswith(month_abbreviation):
-            cut_start_row = row + 3  # Data usually starts 3 rows below the header
+            cut_start_row = row + 3  # data starts 3 rows below header
             break
     if cut_start_row is None:
         print(f"❌ Month {month_abbreviation.upper()} not found in Sheet B.")
         return
 
-    # --- Find the end row of the data block ---
+    # --- Find the end row of the month block (stop when Column C empty) ---
     cut_end_row = cut_start_row
     while cut_end_row <= sheet_b.max_row and sheet_b.cell(row=cut_end_row, column=3).value:
         cut_end_row += 1
     cut_end_row -= 1
 
-    # --- Define key column indexes ---
-    n_col = column_index_from_string('N')
+    # --- Key columns / extra columns & indexes ---
+    n_col  = column_index_from_string('N')
     bi_col = column_index_from_string('BJ')
     bl_col = column_index_from_string('BL')
     bm_col = column_index_from_string('BM')
     bs_col = column_index_from_string('BS')
     extra_cols = [bl_col, bm_col, bs_col]
 
-    # --- Backup values, fills, and fonts from Sheet B (N–BI range + extra columns) ---
+    # --- Backup values, fills, fonts for the whole block (needed for style restore) ---
     cut_data_dict = {}
     for row in sheet_b.iter_rows(min_row=cut_start_row, max_row=cut_end_row,
                                  min_col=n_col, max_col=bs_col):
         row_idx = row[0].row
-        vessel_name = sheet_b.cell(row=row_idx, column=5).value
+        vessel_name = sheet_b.cell(row=row_idx, column=5).value  # Column E
         values_and_styles = {}
         for cell in row:
             col_idx = cell.column
@@ -54,78 +57,156 @@ def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, he
                 values_and_styles[col_idx] = (
                     cell.value,
                     copy(cell.fill),
-                    copy(cell.font)   # also keep font
+                    copy(cell.font)
                 )
             elif col_idx in extra_cols:
                 values_and_styles[col_idx] = (cell.value, None, None)  # value only
         cut_data_dict[vessel_name] = values_and_styles
 
-    # --- Clear old block in Sheet B ---
-    # N–BI: clear values + fill
+    # --- Clear old block (only N–BI values + BL/BM/BS values) ---
     for row in sheet_b.iter_rows(min_row=cut_start_row, max_row=cut_end_row,
                                  min_col=n_col, max_col=bi_col):
         for cell in row:
             cell.value = None
             cell.fill = PatternFill()
-    # BL, BM, BS: clear values only
     for col in extra_cols:
         for row in sheet_b.iter_rows(min_row=cut_start_row, max_row=cut_end_row,
                                      min_col=col, max_col=col):
             for cell in row:
                 cell.value = None
 
-    # --- Copy data from Sheet A to Sheet B ---
+    # === PREP: matching helpers ===
+    # Key fields MUST match the names in column_mapping exactly
+    key_field_names = {'Company', 'Vessel name', 'End user'}
+    key_cols_b = {
+        'Company':     column_index_from_string(column_mapping['Company']),
+        'Vessel name': column_index_from_string(column_mapping['Vessel name']),
+        'End user':    column_index_from_string(column_mapping['End user']),
+    }
+
+    def get_keys_from_sheet(sheet, row_idx):
+        return (
+            sheet.cell(row=row_idx, column=key_cols_b['Company']).value,
+            sheet.cell(row=row_idx, column=key_cols_b['Vessel name']).value,
+            sheet.cell(row=row_idx, column=key_cols_b['End user']).value
+        )
+
+    def find_matching_row_in_block(keys_tuple):
+        comp, ves, eus = keys_tuple
+        for r in range(cut_start_row, cut_end_row + 1):
+            if get_keys_from_sheet(sheet_b, r) == keys_tuple:
+                return r
+        return None
+
+    # Track which vessel names are UPDATED so we can avoid restoring old values
+    updated_vessel_names = set()
+
+    # --- Copy or Update from Sheet A to Sheet B ---
+    # IMPORTANT: keep this as the ORIGINAL to ensure sort range covers whole block
     current_row_b = cut_end_row + 1
+
     for row in range(2, sheet_a.max_row + 1):
-        if sheet_a.cell(row=row, column=header_columns_a['Month']).value == month_value:
+        if sheet_a.cell(row=row, column=header_columns_a['Month']).value != month_value:
+            continue
+
+        keys_tuple = (
+            sheet_a.cell(row=row, column=header_columns_a['Company']).value,
+            sheet_a.cell(row=row, column=header_columns_a['Vessel name']).value,
+            sheet_a.cell(row=row, column=header_columns_a['End user']).value
+        )
+
+        match_row = find_matching_row_in_block(keys_tuple)
+
+        # helper to set a value with Month formatting
+        def _write_value(dest_row, col_name, col_idx_a, col_idx_b):
+            val = sheet_a.cell(row=row, column=col_idx_a).value
+            if col_name == 'Month':
+                try:
+                    date_obj = datetime.datetime(2025, int(val), 1)
+                    cell_b = sheet_b.cell(row=dest_row, column=col_idx_b)
+                    cell_b.value = date_obj
+                    cell_b.number_format = '[$-en-US]mmm;@'
+                except Exception:
+                    sheet_b.cell(row=dest_row, column=col_idx_b).value = val
+            else:
+                sheet_b.cell(row=dest_row, column=col_idx_b).value = val
+
+        if match_row:
+            # --- UPDATE: clear non-key columns, then refill with latest values ---
             for col_name, col_letter_b in column_mapping.items():
-                col_index_a = header_columns_a.get(col_name)
-                col_index_b = column_index_from_string(col_letter_b)
-                if col_index_a is not None:
-                    value = sheet_a.cell(row=row, column=col_index_a).value
-                    if col_name == 'Month':
-                        # Format month as date (January, February, etc.)
-                        try:
-                            date_obj = datetime.datetime(2025, int(value), 1)
-                            cell_b = sheet_b.cell(row=current_row_b, column=col_index_b)
-                            cell_b.value = date_obj
-                            cell_b.number_format = '[$-en-US]mmm;@'
-                        except Exception:
-                            sheet_b.cell(row=current_row_b, column=col_index_b).value = value
-                    else:
-                        sheet_b.cell(row=current_row_b, column=col_index_b).value = value
+                if col_name in key_field_names:
+                    continue  # keep keys
+                col_b = column_index_from_string(col_letter_b)
+                sheet_b.cell(row=match_row, column=col_b).value = None
+
+            for col_name, col_letter_b in column_mapping.items():
+                col_a = header_columns_a.get(col_name)
+                if col_a is None:
+                    continue
+                col_b = column_index_from_string(col_letter_b)
+                _write_value(match_row, col_name, col_a, col_b)
+
+            # mark this vessel as updated (used in restore step)
+            updated_vessel_names.add(keys_tuple[1])  # Vessel name (Column E)
+        else:
+            # --- APPEND: write new row at current_row_b ---
+            for col_name, col_letter_b in column_mapping.items():
+                col_a = header_columns_a.get(col_name)
+                if col_a is None:
+                    continue
+                col_b = column_index_from_string(col_letter_b)
+                _write_value(current_row_b, col_name, col_a, col_b)
             current_row_b += 1
 
-    # --- Define sorting range ---
+    # --- Define sorting range (covers entire original block + any appends) ---
     sort_start = cut_start_row
     sort_end = current_row_b - 1
 
-    # --- Extract data for sorting ---
+    # --- Extract & sort ---
     data_rows = []
     for row in sheet_b.iter_rows(min_row=sort_start, max_row=sort_end, values_only=False):
         data_rows.append([cell.value for cell in row])
-
-    # --- Sort data ---
     data_rows_sorted = sort_data_rows(data_rows)
 
-    # --- Overwrite Sheet B with sorted rows ---
+    # --- Overwrite with sorted rows ---
     for i, row_data in enumerate(data_rows_sorted):
         for j, value in enumerate(row_data):
             sheet_b.cell(row=sort_start + i, column=j + 1, value=value)
 
-    # --- Restore backed up values, fills, and fonts (N–BI range only) ---
-    sorted_vessel_names = [row[4] for row in data_rows_sorted]
+    # --- Restore styles/values (N–BI, plus extra cols) carefully ---
+    # For UPDATED vessels:
+    #   - N–BI: restore fill/font ONLY (keep new values)
+    #   - BL/BM/BS: skip restoring values (keep new)
+    sorted_vessel_names = [row[4] for row in data_rows_sorted]  # Column E
     for i, vessel_name in enumerate(sorted_vessel_names):
         values_and_styles = cut_data_dict.get(vessel_name)
-        if values_and_styles:
-            for col_idx, (val, fill, font) in values_and_styles.items():
-                target_cell = sheet_b.cell(row=cut_start_row + i, column=col_idx)
-                target_cell.value = val
-                if n_col <= col_idx <= bi_col:  # restore style only for N–BI
-                    target_cell.fill = fill
-                    target_cell.font = font
+        if not values_and_styles:
+            continue
 
-    # --- Apply translated formulas to specific columns ---
+        for col_idx, (val, fill, font) in values_and_styles.items():
+            target_cell = sheet_b.cell(row=sort_start + i, column=col_idx)
+
+            if vessel_name in updated_vessel_names:
+                # Updated rows:
+                if n_col <= col_idx <= bi_col:
+                    # keep NEW value, restore only style
+                    if fill is not None:
+                        target_cell.fill = fill
+                    if font is not None:
+                        target_cell.font = font
+                elif col_idx in extra_cols:
+                    # keep NEW value in BL/BM/BS (do nothing)
+                    pass
+            else:
+                # Unchanged rows: restore previous values + styles
+                target_cell.value = val
+                if n_col <= col_idx <= bi_col:
+                    if fill is not None:
+                        target_cell.fill = fill
+                    if font is not None:
+                        target_cell.font = font
+
+    # --- Formulas, font colors, zero cleanup ---
     apply_translated_formulas(
         sheet_b,
         start_row=sort_start,
