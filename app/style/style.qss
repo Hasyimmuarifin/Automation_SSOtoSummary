@@ -1,0 +1,115 @@
+/* === Main Window Background === */
+QMainWindow {
+    background: qlineargradient(
+        spread:pad,
+        x1:0, y1:0,
+        x2:1, y2:1,
+        stop:0 #f5f9ff,
+        stop:1 #a8c6ff
+    );
+}
+
+/* === Labels === */
+QLabel#label_company {
+    color: #2f4da1;
+    font-family: "Arial";
+    font-size: 14pt;
+    font-weight: bold;
+}
+
+QLabel#label_title {
+    color: #222222;
+    font-family: "Arial";
+    font-size: 20pt;
+    font-weight: bold;
+}
+
+QLabel#label_sub {
+    color: #444444;
+    font-family: "Arial";
+    font-size: 10pt;
+}
+
+QLabel#footer {
+    color: #555555;
+    font-family: "Arial";
+    font-size: 9pt;
+}
+
+/* === Box Container === */
+QFrame#box_widget {
+    background-color: #ffffff;
+    border-radius: 14px;
+    border: 1px solid #dddddd;
+}
+
+/* === LineEdit === */
+QLineEdit {
+    background-color: #f0f4f8;
+    border: 1px solid #cccccc;
+    border-radius: 6px;
+    padding: 8px;
+    font-size: 10pt;
+    color: #222222;
+}
+
+QLineEdit:disabled {
+    background-color: #e6e6e6;
+    color: #999999;
+}
+
+/* === Buttons umum === */
+QPushButton {
+    background-color: #4a90e2;
+    color: white;
+    border-radius: 8px;
+    font-size: 14pt;
+    font-weight: bold;
+    padding: 8px 16px;
+}
+
+QPushButton:hover {
+    background-color: #357abd;
+}
+
+QPushButton:pressed {
+    background-color: #2d5c9a;
+}
+
+QPushButton:disabled {
+    background-color: #a0c4f0;
+    color: #eeeeee;
+}
+
+/* === Buttons khusus Input & Output (font lebih kecil) === */
+QPushButton#btnInput, QPushButton#btnOutput {
+    font-size: 10pt;
+    font-weight: bold;
+    padding: 0px 0px;
+}
+
+/* === Buttons (Start) === */
+QPushButton#btnStart {
+    background-color: #2ecc71;
+    color: white;
+    border-radius: 10px;
+    font-size: 14pt;
+    font-weight: bold;
+    padding: 8px 16px;
+}
+QPushButton#btnStart:hover {
+    background-color: #27ae60;
+}
+
+/* === Buttons (End) === */
+QPushButton#btnEnd {
+    background-color: #95a5a6;
+    color: white;
+    border-radius: 10px;
+    font-size: 14pt;
+    font-weight: bold;
+    padding: 8px 16px;
+}
+QPushButton#btnEnd:hover {
+    background-color: #7f8c8d;
+}
