@@ -1,6 +1,6 @@
 # main_logic.py
 from config.column_mapping import column_mapping
-from .helpers import month_to_abbreviation, get_header_columns_a
+from .helpers import month_to_abbreviation, get_header_columns_a, delete_old_plan_rows
 from .data_handler import process_data_per_month
 from .move_sheet import copy_sheet_full   # ✅ Utility to copy entire sheet
 import openpyxl
@@ -27,16 +27,27 @@ def run_excel_process(input_file: str, output_file: str) -> str:
         str: Success message after the process is completed.
     """
 
-    # Step 1: Copy the "Loading" sheet from input to output
-    copy_sheet_full(input_file, output_file, sheet_name="Loading")
+    # Step 1: Copy sheet "Loading" baru ke source, namanya "Loading2"
+    copy_sheet_full(input_file, output_file, sheet_name="Loading", new_name="Loading2")
 
     # Step 2: Open the workbook for processing
     wb = openpyxl.load_workbook(input_file)
-
-    # Define source and destination sheets
-    sheet_a = wb['Loading']         # Source sheet (raw data)
     sheet_b = wb['ITM Summary']     # Destination sheet (processed results)
 
+    # ambil sheet lama (Loading) jika ada
+    sheet_loading_old = wb['Loading'] if 'Loading' in wb.sheetnames else None
+    sheet_loading_new = wb['Loading2']
+
+    if sheet_loading_old:
+        header_columns_old = get_header_columns_a(sheet_loading_old, column_mapping)
+        delete_old_plan_rows(sheet_b, sheet_loading_old, header_columns_old, column_mapping)
+
+        # hapus sheet lama
+        wb.remove(sheet_loading_old)
+
+    # rename Loading2 → Loading
+    sheet_loading_new.title = "Loading"
+    sheet_a = wb['Loading']
     # Get column positions based on defined mapping
     header_columns_a = get_header_columns_a(sheet_a, column_mapping)
 

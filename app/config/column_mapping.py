@@ -56,6 +56,7 @@ column_mapping = {
 
     # Persentase & FLF
     'Shipper % ': 'BO',
+    'Status' : 'BQ',
     'FLF name': 'BS',
 
     # Coal Quality
