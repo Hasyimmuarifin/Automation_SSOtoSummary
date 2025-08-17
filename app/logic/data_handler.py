@@ -21,18 +21,27 @@ def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, he
 
     # --- Locate the start row (month block) in Sheet B ---
     cut_start_row = None
+    print(f"🔎 Looking for month: {month_abbreviation}")
     for row in range(1, sheet_b.max_row + 1):
         cell_val = sheet_b.cell(row=row, column=2).value
-        if cell_val and isinstance(cell_val, str) and cell_val.strip().lower().startswith(month_abbreviation):
+        if cell_val:
+            print(f"Row {row}, Col B = {cell_val}")  # 👈 cek isi nyata di Excel
+        if cell_val and isinstance(cell_val, str) and cell_val.strip().lower().startswith(month_abbreviation.lower()):
             cut_start_row = row + 3  # data starts 3 rows below header
             break
     if cut_start_row is None:
         print(f"❌ Month {month_abbreviation.upper()} not found in Sheet B.")
         return
+    else:
+        print(f"✅ Found {month_abbreviation.upper()} starting at row {cut_start_row}")
 
     # --- Find the end row of the month block (stop when Column C empty) ---
     cut_end_row = cut_start_row
-    while cut_end_row <= sheet_b.max_row and sheet_b.cell(row=cut_end_row, column=3).value:
+    while cut_end_row <= sheet_b.max_row :
+        val_b = sheet_b.cell(row=cut_end_row, column=3).value
+        # berhenti kalau benar-benar kosong (None atau string kosong)
+        if val_b is None or str(val_b).strip() == "":
+            break
         cut_end_row += 1
     cut_end_row -= 1
 
@@ -213,7 +222,7 @@ def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, he
         end_row=sort_end,
         included_columns=['B', 'BJ', 'BO', 'ANO'],
         formulas={
-            'B': '=IFERROR(1+OFFSET(B{row},-1,0,1,1),1)',
+            'B': f"=ROW()-ROW($B${sort_start})+1", # nomor urut otomatis
             'BJ': '=IFERROR(SUM(N{row}:BI{row}),"NULL")',
             'BO': '=(SUMIF($N$317:$BI$317,D{row},N{row}:BI{row}))/BJ{row}',
             'ANO': '=BJ{row}/AOA{row}'

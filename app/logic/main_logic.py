@@ -3,6 +3,7 @@ from config.column_mapping import column_mapping
 from .helpers import month_to_abbreviation, get_header_columns_a, delete_old_plan_rows
 from .data_handler import process_data_per_month
 from .move_sheet import copy_sheet_full   # ✅ Utility to copy entire sheet
+from .renumber_blocks import renumber_month_blocks
 import openpyxl
 
 
@@ -73,6 +74,8 @@ def run_excel_process(input_file: str, output_file: str) -> str:
             sheet_a, sheet_b, month_value,
             month_abbreviation, header_columns_a, column_mapping
         )
+
+        renumber_month_blocks(sheet_b)
 
     # Step 5: Save the result back to the input file (final output)
     wb.save(input_file)
