@@ -6,6 +6,7 @@ from .sorter import sort_data_rows
 from .formula import apply_translated_formulas
 from .formatting import apply_font_colors
 from .zero_handler import replace_zeros_with_none_in_sheet
+from .auto_separator import get_formula_separator
 
 
 def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, header_columns_a, column_mapping):
@@ -215,17 +216,34 @@ def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, he
                     if font is not None:
                         target_cell.font = font
 
+    sep = get_formula_separator()
     # --- Formulas, font colors, zero cleanup ---
     apply_translated_formulas(
         sheet_b,
         start_row=sort_start,
         end_row=sort_end,
-        included_columns=['B', 'BJ', 'BO', 'ANO'],
+        included_columns=['B', 'BJ', 'BO', 'AKK', 'ANO', 'ANQ', 'ANS', 'ANT', 'ANU', 'ANX', 'AOA', 'AOB', 'AOC', 'AOD', 'AOE', 'AOF', 'AOH', 'AOI', 'AOJ', 'AOK'],
         formulas={
             'B': f"=ROW()-ROW($B${sort_start})+1", # nomor urut otomatis
             'BJ': '=IFERROR(SUM(N{row}:BI{row}),"NULL")',
             'BO': '=(SUMIF($N$317:$BI$317,D{row},N{row}:BI{row}))/BJ{row}',
-            'ANO': '=BJ{row}/AOA{row}'
+            'AKK': '=(AOH{row}/BJ{row})*-1',
+            'ANO': '=IFERROR(BJ{row}/AOA{row},0)',
+            'ANQ': '=J{row}',
+            'ANS': '=ANQ{row}+(ANR{row}/24)',
+            'ANT': '=K{row}',
+            'ANU': '=L{row}',
+            'ANX': '=BJ{row}',
+            'AOA': '=(ANU{row}-ANT{row})*24',
+            'AOB': '=(ANT{row}-ANS{row})*24',
+            'AOC': '=(ANU{row}-ANS{row})*24',
+            'AOD': f'=IF(BS{{row}}="Stevedore"{sep}10000{sep} IF(H{{row}}="BoCT"{sep}40000{sep} IF(H{{row}}="SMD Anc"{sep}25000{sep} IF(H{{row}}="GPK Port"{sep}10000{sep} IF(H{{row}}="Bunyut"{sep}25000{sep}0)))))',
+            'AOE': '=(BJ{row}/AOD{row})*24',
+            'AOF': '=(AOC{row}-AOE{row})/24',
+            'AOH': '=AOF{row}*AOG{row}',
+            'AOI': '=AOF{row}*-1',
+            'AOJ': '=AOG{row}/2',
+            'AOK': '=AOH{row}/2'
         }
     )
 
