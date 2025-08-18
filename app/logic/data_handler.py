@@ -224,7 +224,7 @@ def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, he
         end_row=sort_end,
         included_columns=['B', 'BJ', 'BO', 'AKK', 'ANO', 'ANQ', 'ANS', 'ANT', 'ANU', 'ANX', 'AOA', 'AOB', 'AOC', 'AOD', 'AOE', 'AOF', 'AOH', 'AOI', 'AOJ', 'AOK'],
         formulas={
-            'B': f"=ROW()-ROW($B${sort_start})+1", # nomor urut otomatis
+            # 'B': f"=ROW()-ROW($B${sort_start})+1", # nomor urut otomatis
             'BJ': '=IFERROR(SUM(N{row}:BI{row}),"NULL")',
             'BO': '=(SUMIF($N$317:$BI$317,D{row},N{row}:BI{row}))/BJ{row}',
             'AKK': '=(AOH{row}/BJ{row})*-1',
