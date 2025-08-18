@@ -1,12 +1,14 @@
 def renumber_month_blocks(sheet_b):
     """
     Cari semua blok bulan di Sheet B, lalu perbarui kolom B dengan nomor urut
-    menggunakan formula agar tetap konsisten.
+    Return daftar blok bulan sebagai list of tuples: [(start_row, end_row), ...]
     """
 
     print("🔢 Renumbering month blocks in Sheet B...")
 
     month_headers = []  # simpan posisi row header bulan
+    month_blocks = []    # hasil akhir: daftar blok bulan
+    
     # --- Cari semua header bulan di kolom B ---
     for row in range(1, sheet_b.max_row + 1):
         val = sheet_b.cell(row=row, column=2).value
@@ -39,8 +41,13 @@ def renumber_month_blocks(sheet_b):
             last_data_row += 1
         last_data_row -= 1
 
-        # --- Isi ulang nomor urut di kolom B ---
-        for r in range(cut_start_row, last_data_row + 1):
-            sheet_b.cell(row=r, column=2).value = f"=ROW()-ROW($B${cut_start_row})+1"
+        if last_data_row >= cut_start_row:
+            # Simpan blok valid
+            month_blocks.append((cut_start_row, last_data_row))
+
+            # --- Isi ulang nomor urut di kolom B ---
+            for r in range(cut_start_row, last_data_row + 1):
+                sheet_b.cell(row=r, column=2).value = f"=ROW()-ROW($B${cut_start_row})+1"
 
     print("✅ Renumbering done.")
+    return month_blocks
