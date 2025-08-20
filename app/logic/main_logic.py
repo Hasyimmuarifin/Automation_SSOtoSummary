@@ -1,11 +1,37 @@
 # main_logic.py
 from config.column_mapping import column_mapping
-from .helpers import month_to_abbreviation, get_header_columns_a, delete_old_plan_rows
+from .helpers import month_to_abbreviation, get_header_columns_a, delete_old_plan_rows, normalize_month_block_rows
 from .data_handler import process_data_per_month
 from .move_sheet import copy_sheet_full   # ✅ Utility to copy entire sheet
 from .renumber_blocks import renumber_month_blocks
+from .formula import reapply_formulas
+from .auto_separator import get_formula_separator
 import openpyxl
 
+sep = get_formula_separator()
+# 📌 mapping formula kolom → pattern (bisa diperluas sesuai kebutuhan)
+formulas={
+    # 'B': f"=ROW()-ROW($B${sort_start})+1", # nomor urut otomatis
+    'BJ': '=IFERROR(SUM(N{row}:BI{row}),"NULL")',
+    'BO': '=(SUMIF($N$317:$BI$317,D{row},N{row}:BI{row}))/BJ{row}',
+    'AKK': '=(AOH{row}/BJ{row})*-1',
+    'ANO': '=IFERROR(BJ{row}/AOA{row},0)',
+    'ANQ': '=J{row}',
+    'ANS': '=ANQ{row}+(ANR{row}/24)',
+    'ANT': '=K{row}',
+    'ANU': '=L{row}',
+    'ANX': '=BJ{row}',
+    'AOA': '=(ANU{row}-ANT{row})*24',
+    'AOB': '=(ANT{row}-ANS{row})*24',
+    'AOC': '=(ANU{row}-ANS{row})*24',
+    'AOD': f'=IF(BS{{row}}="Stevedore"{sep}10000{sep} IF(H{{row}}="BoCT"{sep}40000{sep} IF(H{{row}}="SMD Anc"{sep}25000{sep} IF(H{{row}}="GPK Port"{sep}10000{sep} IF(H{{row}}="Bunyut"{sep}25000{sep}0)))))',
+    'AOE': '=(BJ{row}/AOD{row})*24',
+    'AOF': '=(AOC{row}-AOE{row})/24',
+    'AOH': '=AOF{row}*AOG{row}',
+    'AOI': '=AOF{row}*-1',
+    'AOJ': '=AOG{row}/2',
+    'AOK': '=AOH{row}/2'
+}
 
 def run_excel_process(input_file: str, output_file: str) -> str:
     """
@@ -43,12 +69,18 @@ def run_excel_process(input_file: str, output_file: str) -> str:
         header_columns_old = get_header_columns_a(sheet_loading_old, column_mapping)
         delete_old_plan_rows(sheet_b, sheet_loading_old, header_columns_old, column_mapping)
 
+        # --- Step: Normalisasi blok bulan setelah delete plan rows ---
+        month_blocks = renumber_month_blocks(sheet_b)
+        normalize_month_block_rows(sheet_b, month_blocks, reference_col=2, renumber_func=renumber_month_blocks)
+        reapply_formulas(sheet_b,month_blocks, formulas)
+
         # hapus sheet lama
         wb.remove(sheet_loading_old)
 
     # rename Loading2 → Loading
     sheet_loading_new.title = "Loading"
     sheet_a = wb['Loading']
+
     # Get column positions based on defined mapping
     header_columns_a = get_header_columns_a(sheet_a, column_mapping)
 
