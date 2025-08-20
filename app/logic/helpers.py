@@ -4,8 +4,67 @@ from .renumber_blocks import renumber_month_blocks
 from openpyxl.utils import column_index_from_string, get_column_letter
 from .auto_separator import get_formula_separator
 from .formula import reapply_formulas
+from copy import copy
 
 sep = get_formula_separator()
+
+def normalize_month_block_rows(sheet, month_blocks, reference_col=2, renumber_func=None):
+    """
+    Normalisasi setiap blok bulan di sheet Excel:
+    - Setiap blok bulan minimal 100 baris.
+    - Jika kurang, tambahkan baris baru.
+    - Copy style dari baris terakhir yang memiliki value di kolom B.
+    - Setelah setiap blok selesai → renumbering blocks agar update.
+    - Print log proses untuk debugging.
+
+    Args:
+        sheet: openpyxl worksheet object
+        month_blocks: list of tuples (start_row, end_row) hasil renumber_month_blocks
+        reference_col: kolom yang dijadikan acuan (default 2 = kolom B)
+        renumber_func: fungsi untuk renumbering blok bulan (misalnya renumber_month_blocks)
+    """
+    print("🔧 Starting normalize_month_block_rows...")
+
+    i = 0
+    while i < len(month_blocks):
+        start_row, end_row = month_blocks[i]
+        print(f"\n📦 Processing Block #{i+1}: start_row={start_row}, end_row={end_row}")
+
+        # Cari baris terakhir di blok ini yang memiliki value di kolom B
+        last_row = end_row
+        for row in range(end_row, start_row - 1, -1):
+            if sheet.cell(row=row, column=reference_col).value not in (None, ""):
+                last_row = row
+                break
+        print(f"📌 Last row with value in col B: {last_row}")
+
+        current_block_size = end_row - start_row + 1
+        if current_block_size >= 100:
+            print("✅ Block already has 100 or more rows. Skipping...")
+        else:
+            rows_to_add = 100 - current_block_size
+            print(f"➕ Adding {rows_to_add} row(s) to reach 100 rows.")
+
+            for _ in range(rows_to_add):
+                sheet.insert_rows(last_row + 1)
+                for col in range(1, sheet.max_column + 1):
+                    old_cell = sheet.cell(row=last_row, column=col)
+                    new_cell = sheet.cell(row=last_row + 1, column=col)
+                    if old_cell.has_style:
+                        new_cell._style = copy(old_cell._style)
+                    new_cell.value = None  # Kosongkan value
+                last_row += 1
+
+        # 🔄 Setelah SETIAP blok selesai → renumber
+        if renumber_func is not None:
+            print("🔄 Renumbering month blocks after current block...")
+            month_blocks = renumber_func(sheet)
+            print(f"📌 Updated month_blocks: {month_blocks}")
+
+        i += 1  # lanjut ke blok berikutnya dengan list yang sudah update
+
+    print("✅ normalize_month_block_rows complete.")
+
 
 # 📌 mapping formula kolom → pattern (bisa diperluas sesuai kebutuhan)
 formulas={
