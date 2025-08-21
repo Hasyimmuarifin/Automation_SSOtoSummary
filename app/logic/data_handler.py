@@ -216,6 +216,22 @@ def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, he
                     if font is not None:
                         target_cell.font = font
 
+    # --- Update Kolom AOG berdasarkan prefiks di Kolom E ---
+    print("📝 Updating AOG column based on Vessel prefixes...")
+    for row in range(sort_start, sort_end + 1):
+        col_e_val = str(sheet_b[f"E{row}"].value or "").upper().strip()
+
+        match True:
+            case _ if col_e_val.startswith("MV"):
+                sheet_b[f"AOG{row}"].value = 18000
+            case _ if col_e_val.startswith(("BG", "DUMP")):
+                sheet_b[f"AOG{row}"].value = 0
+            case _ if col_e_val == "":
+                sheet_b[f"AOG{row}"].value = None
+            case _:
+                # Kalau tidak cocok apapun, kosongkan cell
+                sheet_b[f"AOG{row}"].value = None
+
     sep = get_formula_separator()
     # --- Formulas, font colors, zero cleanup ---
     apply_translated_formulas(
@@ -226,7 +242,7 @@ def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, he
         formulas={
             # 'B': f"=ROW()-ROW($B${sort_start})+1", # nomor urut otomatis
             'BJ': '=IFERROR(SUM(N{row}:BI{row}),"NULL")',
-            'BO': '=(SUMIF($N$317:$BI$317,D{row},N{row}:BI{row}))/BJ{row}',
+            'BO': '=(SUMIF($N$892:$BI$892,D{row},N{row}:BI{row}))/BJ{row}',
             'AKK': '=(AOH{row}/BJ{row})*-1',
             'ANO': '=IFERROR(BJ{row}/AOA{row},0)',
             'ANQ': '=J{row}',
