@@ -8,13 +8,14 @@ from copy import copy
 
 sep = get_formula_separator()
 
-def normalize_month_block_rows(sheet, month_blocks, reference_col=2, renumber_func=None):
+def normalize_month_block_rows(sheet, month_blocks, reference_col=2, renumber_func=None, formulas=None):
     """
     Normalisasi setiap blok bulan di sheet Excel:
     - Setiap blok bulan minimal 100 baris.
     - Jika kurang, tambahkan baris baru.
-    - Copy style dari baris terakhir yang memiliki value di kolom B.
+    - Copy style dan formula dari baris terakhir yang memiliki value di kolom B.
     - Setelah setiap blok selesai → renumbering blocks agar update.
+    - Setelah setiap blok selesai → panggil reapply_formulas untuk blok itu.
     - Print log proses untuk debugging.
 
     Args:
@@ -22,6 +23,7 @@ def normalize_month_block_rows(sheet, month_blocks, reference_col=2, renumber_fu
         month_blocks: list of tuples (start_row, end_row) hasil renumber_month_blocks
         reference_col: kolom yang dijadikan acuan (default 2 = kolom B)
         renumber_func: fungsi untuk renumbering blok bulan (misalnya renumber_month_blocks)
+        formulas: daftar formula yang akan diaplikasikan
     """
     print("🔧 Starting normalize_month_block_rows...")
 
@@ -50,9 +52,20 @@ def normalize_month_block_rows(sheet, month_blocks, reference_col=2, renumber_fu
                 for col in range(1, sheet.max_column + 1):
                     old_cell = sheet.cell(row=last_row, column=col)
                     new_cell = sheet.cell(row=last_row + 1, column=col)
+
+                    # Copy style
                     if old_cell.has_style:
                         new_cell._style = copy(old_cell._style)
-                    new_cell.value = None  # Kosongkan value
+                    
+                    # Copy formula jika ada
+                    if old_cell.data_type == 'f':
+                        new_cell.value = old_cell.value
+                    else:
+                        # Kosongkan value kecuali kolom B
+                        if col == reference_col and old_cell.data_type == 'f':
+                            new_cell.value = old_cell.value
+                        else:
+                            new_cell.value = None
                 last_row += 1
 
         # 🔄 Setelah SETIAP blok selesai → renumber
@@ -60,6 +73,11 @@ def normalize_month_block_rows(sheet, month_blocks, reference_col=2, renumber_fu
             print("🔄 Renumbering month blocks after current block...")
             month_blocks = renumber_func(sheet)
             print(f"📌 Updated month_blocks: {month_blocks}")
+
+        # 🧮 Panggil reapply_formulas untuk blok ini
+        if formulas is not None:
+            print("✨ Reapplying formulas for current block...")
+            reapply_formulas(sheet, [(start_row, last_row)], formulas)
 
         i += 1  # lanjut ke blok berikutnya dengan list yang sudah update
 
