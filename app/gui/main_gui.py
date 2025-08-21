@@ -2,6 +2,7 @@ from PyQt6.QtWidgets import QMainWindow, QFileDialog, QMessageBox, QProgressDial
 from PyQt6.QtCore import QThread, pyqtSignal
 from gui.interface import Ui_MainWindow
 import logic.main_logic as main_logic
+from utils.resources import resource_path
 import os
 
 
@@ -29,7 +30,7 @@ class MainApp(QMainWindow, Ui_MainWindow):
         self.setupUi(self)
 
         # Load external stylesheet
-        style_path = os.path.join(os.path.dirname(__file__), "../style/style.qss")
+        style_path = resource_path("style/style.qss")
         if os.path.exists(style_path):
             with open(style_path, "r") as f:
                 self.setStyleSheet(f.read())

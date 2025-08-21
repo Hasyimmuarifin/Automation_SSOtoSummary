@@ -1,4 +1,5 @@
 from PyQt6 import QtCore, QtGui, QtWidgets
+from utils.resources import resource_path
 import os, sys
 
 class ResourceHelper:
@@ -27,7 +28,7 @@ class Ui_MainWindow(object):
         MainWindow.resize(700, 600)
 
         # === Load stylesheet (QSS) ===
-        qss_path = ResourceHelper.get_path("../style/style.qss")
+        qss_path = resource_path("style/style.qss")
         if os.path.exists(qss_path):
             with open(qss_path, "r") as f:
                 MainWindow.setStyleSheet(f.read())
@@ -40,7 +41,7 @@ class Ui_MainWindow(object):
 
         # === Company Logo ===
         self.logo = QtWidgets.QLabel()
-        logo_path = ResourceHelper.get_path("../assets/ITM_logo.png")
+        logo_path = resource_path("assets/ITM_logo.png")
         if os.path.exists(logo_path):
             self.logo.setPixmap(QtGui.QPixmap(logo_path))
         self.logo.setScaledContents(True)
