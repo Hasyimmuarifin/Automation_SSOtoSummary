@@ -1,11 +1,21 @@
+# Cache & temporary
 __pycache__/
 *.pyc
 
+# Archives
+*.zip
+
+# Build output
+*.exe
+build/
+app/build/
+
+# UI design file
 interface.ui
 
-# # ========================
-# # Excel or spreadsheet outputs
-# # ========================
+# ========================
+# Excel or spreadsheet outputs
+# ========================
 # *.xlsx
 # *.xls
 # *.csv
