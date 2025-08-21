@@ -71,8 +71,8 @@ def run_excel_process(input_file: str, output_file: str) -> str:
 
         # --- Step: Normalisasi blok bulan setelah delete plan rows ---
         month_blocks = renumber_month_blocks(sheet_b)
-        normalize_month_block_rows(sheet_b, month_blocks, reference_col=2, renumber_func=renumber_month_blocks)
-        reapply_formulas(sheet_b,month_blocks, formulas)
+        normalize_month_block_rows(sheet_b, month_blocks, reference_col=2, renumber_func=renumber_month_blocks, formulas=formulas)
+        # reapply_formulas(sheet_b,month_blocks, formulas)
 
         # hapus sheet lama
         wb.remove(sheet_loading_old)
