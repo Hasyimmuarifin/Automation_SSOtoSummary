@@ -14,26 +14,37 @@ def apply_font_colors(sheet, start_row, end_row):
         end_row (int): The ending row for formatting.
     """
     for i in range(start_row, end_row + 1):
-        vessel_cell = sheet.cell(row=i, column=5)   # Column E: Vessel name
-        status_cell = sheet.cell(row=i, column=69)  # Column BQ: Status
-        
-        # Determine the font color based on the cell values
-        if str(status_cell.value).strip() == "Completed":
-            font_color = "000000"  # Black
-        elif str(status_cell.value).strip() == "Loading":
-            font_color = "FFA500"  # Orange 
-        elif str(status_cell.value).strip() == "In Progress":
-            font_color = "800080"  # Purple
-        else:
-            vessel_value = str(vessel_cell.value).strip().upper()
+        vessel_cell = sheet.cell(row=i, column=5)   # Kolom E: Vessel name
+        status_cell = sheet.cell(row=i, column=69)  # Kolom BQ: Status
+
+        status_value = str(status_cell.value).strip() if status_cell.value else ""
+        vessel_value = str(vessel_cell.value).strip().upper() if vessel_cell.value else ""
+
+        # Default warna
+        font_color = "FF00B050"  # Hijau
+
+        # 🔹 Prioritaskan status selain Plan
+        if status_value == "Completed":
+            font_color = "FF000000"  # Hitam
+        elif status_value == "Loading":
+            font_color = "FFFFA500"  # Oranye
+        elif status_value == "In Progress":
+            font_color = "FF800080"  # Ungu
+        elif status_value == "Plan":
+            # 🔹 Plan → cek vessel
             if vessel_value.startswith("MV. TBN") or vessel_value.startswith("BG. TBN"):
-                font_color = "0070C0"  # Blue
+                font_color = "FF0070C0"  # Biru
             else:
-                font_color = "00B050"  # Green
+                font_color = "FF00B050"  # Hijau
+        else:
+            # Kalau status lain yang tidak dikenali → fallback vessel
+            if vessel_value.startswith("MV. TBN") or vessel_value.startswith("BG. TBN"):
+                font_color = "FF0070C0"  # Biru
+            else:
+                font_color = "FF00B050"  # Hijau
 
-
-        # Apply the font color to columns B to L (columns 2 to 12)
-        for j in range(2, 13):
+        # Terapkan ke kolom B–L + BQ
+        for j in list(range(2, 13)) + [69]:
             cell = sheet.cell(row=i, column=j)
             if cell.value is not None:
                 current_font = cell.font or Font()

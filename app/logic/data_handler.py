@@ -225,7 +225,7 @@ def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, he
             case _ if col_e_val.startswith("MV"):
                 sheet_b[f"AOG{row}"].value = 18000
             case _ if col_e_val.startswith(("BG", "DUMP")):
-                sheet_b[f"AOG{row}"].value = 0
+                sheet_b[f"AOG{row}"].value = 0.00000001
             case _ if col_e_val == "":
                 sheet_b[f"AOG{row}"].value = None
             case _:
