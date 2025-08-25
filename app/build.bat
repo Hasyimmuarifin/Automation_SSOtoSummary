@@ -18,8 +18,8 @@ python -m PyInstaller ^
     --clean ^
     --onefile ^
     --windowed ^
-    --icon=assets\ITM_icon.ico ^
-    --name ITM_App ^
+    --icon=assets\barageng.ico ^
+    --name "Automation SSO" ^
     --add-data "assets;assets" ^
     --add-data "style;style" ^
     --add-data "config;config" ^

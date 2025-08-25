@@ -337,16 +337,35 @@ def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, he
     left_end   = column_index_from_string("BI")
     left_range = list(range(left_start, left_end + 1))
 
-    # Range kolom untuk bagian kanan (jalan terus maju)
-    right_start = column_index_from_string("CE")
-    # panjang total cell yang akan diisi (9 blok × jumlah kolom per blok)
-    total_cols = sum(
-        column_index_from_string(end) - column_index_from_string(start) + 1
-        for start, end in custom_formula_columns
-    )
-    right_range = list(range(right_start, right_start + total_cols))
+    # Range kolom untuk bagian kanan → AMBIL DARI fc_formula_columns
+    # fc_formula_columns = [
+    #     ("CE", "DZ"),
+    #     ("EB", "FW"),
+    #     ("FY", "HT"),
+    #     ("HV", "JQ"),
+    #     ("JS", "LN"),
+    #     ("LP", "NK"),
+    #     ("NM", "PH"),
+    #     ("PJ", "RE"),
+    #     ("RG", "TB"),
+    # ]
+    # flatten daftar kolom kanan sesuai fc_formula_columns
+    right_columns = []
+    for start_col, end_col in fc_formula_columns:
+        start_idx = column_index_from_string(start_col)
+        end_idx   = column_index_from_string(end_col)
+        right_columns.extend(range(start_idx, end_idx + 1))
 
-    right_iter = iter(right_range)  # supaya bisa jalan terus maju
+    right_iter = iter(right_columns)  # supaya bisa maju sesuai definisi blok fc
+
+    # # panjang total cell yang akan diisi (9 blok × jumlah kolom per blok)
+    # total_cols = sum(
+    #     column_index_from_string(end) - column_index_from_string(start) + 1
+    #     for start, end in custom_formula_columns
+    # )
+    # right_range = list(range(right_start, right_start + total_cols))
+
+    # right_iter = iter(right_range)  # supaya bisa jalan terus maju
 
     for start_col, end_col in custom_formula_columns:
         start_idx = column_index_from_string(start_col)
@@ -356,7 +375,7 @@ def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, he
         for offset, c in enumerate(range(start_idx, end_idx + 1)):
             col_letter = get_column_letter(c)
             left_col_letter = get_column_letter(left_range[offset])   # N–BI (ulang)
-            right_col_letter = get_column_letter(next(right_iter))    # CE–... (maju terus)
+            right_col_letter = get_column_letter(next(right_iter))    # CE–... (maju sesuai fc_formula_columns)
 
             for r in range(sort_start, sort_end + 1):
                 sheet_b[f"{col_letter}{r}"].value = (
