@@ -59,16 +59,16 @@ column_mapping = {
     'Status' : 'BQ',
     'FLF name': 'BS',
 
-    # Coal Quality
-    'TM (AR)': 'BU',
-    'M (AD)': 'BV',
-    'ASH (AD)': 'BW',
-    'ASH (AR)': 'BX',
-    'TS (AD)': 'BY',
-    'TS (AR)': 'BZ',
-    'CV (AD)': 'CA',
-    'CV (AR)': 'CB',
-    'CV (NAR)': 'CC',
+    # # Coal Quality
+    # 'TM (AR)': 'BU',
+    # 'M (AD)': 'BV',
+    # 'ASH (AD)': 'BW',
+    # 'ASH (AR)': 'BX',
+    # 'TS (AD)': 'BY',
+    # 'TS (AR)': 'BZ',
+    # 'CV (AD)': 'CA',
+    # 'CV (AR)': 'CB',
+    # 'CV (NAR)': 'CC',
 
     # # Financial Compensation
     # 'Bonus/Penalty (per ton)': 'AKD',

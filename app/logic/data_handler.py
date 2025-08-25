@@ -1,6 +1,6 @@
 import datetime
 from copy import copy
-from openpyxl.utils import column_index_from_string
+from openpyxl.utils import column_index_from_string, get_column_letter
 from openpyxl.styles import PatternFill
 from .sorter import sort_data_rows
 from .formula import apply_translated_formulas
@@ -262,6 +262,143 @@ def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, he
             'AOK': '=AOH{row}/2'
         }
     )
+
+    # --- Tambahan untuk membuat formula dinamis FC Quality Master ---
+    def build_fc_formula(col_letter, row, sheet_b, sep):
+        """
+        Build Excel formula untuk kolom tertentu (col_letter) dan baris row,
+        berdasarkan month_val (Jan, Feb, dst).
+        """
+        month_row_map = {
+            "Jan": 6, "Feb": 57, "Mar": 108, "Apr": 159,
+            "May": 209, "Jun": 261, "Jul": 312, "Aug": 363,
+            "Sep": 414, "Oct": 465, "Nov": 516, "Dec": 567,
+        }
+        # ambil nilai bulan di kolom C untuk baris tersebut
+        month_val = sheet_b.cell(row=row, column=3).value
+        if month_val:
+            try:
+                month_val_str = month_val.strftime("%b")  # "Jan", "Feb", ... "Dec"
+            except AttributeError:
+                month_val_str = str(month_val).strip()[:3]  # fallback kalau bukan datetime
+        else:
+            month_val_str = "Jul"
+
+        base_row = month_row_map.get(month_val_str, 363)  # default ke Jul bila tidak dikenali
+
+        return (
+            f"=IFERROR("
+            f"INDEX(OFFSET('FC Quality Master'!$D${base_row}{sep}0{sep}0{sep}49{sep}13)"
+            f"{sep}MATCH({col_letter}$893{sep}"
+            f"OFFSET('FC Quality Master'!$D${base_row}{sep}0{sep}0{sep}49{sep}1){sep}0)"
+            f"{sep}MATCH({col_letter}$892{sep}"
+            f"OFFSET('FC Quality Master'!$D${base_row}{sep}0{sep}0{sep}1{sep}13){sep}0))"
+            f"{sep}\"NULL\")"
+        )
+
+    # --- APPLY FORMULAS KE 432 KOLOM ---
+    fc_formula_columns = [
+        ("CE", "DZ"),
+        ("EB", "FW"),
+        ("FY", "HT"),
+        ("HV", "JQ"),
+        ("JS", "LN"),
+        ("LP", "NK"),
+        ("NM", "PH"),
+        ("PJ", "RE"),
+        ("RG", "TB"),
+    ]
+
+    for start_col, end_col in fc_formula_columns:
+        start_idx = column_index_from_string(start_col)
+        end_idx   = column_index_from_string(end_col)
+
+        for r in range(sort_start, sort_end + 1):
+            for c in range(start_idx, end_idx + 1):
+                col_letter = get_column_letter(c)
+                formula = build_fc_formula(col_letter, r, sheet_b, sep)
+                sheet_b[f"{col_letter}{r}"].value = formula
+
+    # --- Tambahan: APPLY FORMULAS KE 432 KOLOM (TD–AKA) ---
+    custom_formula_columns = [
+        ("TD", "UY"),
+        ("VA", "WV"),
+        ("WX", "YS"),
+        ("YU", "AAP"),
+        ("AAR", "ACM"),
+        ("ACO", "AEJ"),
+        ("AEL", "AGG"),
+        ("AGI", "AID"),
+        ("AIF", "AKA"),
+    ]
+
+    # Range kolom untuk bagian kiri (ulang tiap blok)
+    left_start = column_index_from_string("N")
+    left_end   = column_index_from_string("BI")
+    left_range = list(range(left_start, left_end + 1))
+
+    # Range kolom untuk bagian kanan (jalan terus maju)
+    right_start = column_index_from_string("CE")
+    # panjang total cell yang akan diisi (9 blok × jumlah kolom per blok)
+    total_cols = sum(
+        column_index_from_string(end) - column_index_from_string(start) + 1
+        for start, end in custom_formula_columns
+    )
+    right_range = list(range(right_start, right_start + total_cols))
+
+    right_iter = iter(right_range)  # supaya bisa jalan terus maju
+
+    for start_col, end_col in custom_formula_columns:
+        start_idx = column_index_from_string(start_col)
+        end_idx   = column_index_from_string(end_col)
+
+        # ulang lagi untuk left tiap blok
+        for offset, c in enumerate(range(start_idx, end_idx + 1)):
+            col_letter = get_column_letter(c)
+            left_col_letter = get_column_letter(left_range[offset])   # N–BI (ulang)
+            right_col_letter = get_column_letter(next(right_iter))    # CE–... (maju terus)
+
+            for r in range(sort_start, sort_end + 1):
+                sheet_b[f"{col_letter}{r}"].value = (
+                    f'=IFERROR({left_col_letter}{r}*{right_col_letter}{r}/$BJ{r},"NULL")'
+                )
+
+    # --- Tambahan: APPLY FORMULAS untuk KOLOM (BU - CC) ---
+    # gunakan separator lokal
+    # (pakai variabel `sep` yang sudah kamu set beberapa baris di atas dengan get_formula_separator())
+    # mapping bulan ke offset
+    month_offset_map = {
+        1: 4,     # Jan
+        2: 130,   # Feb
+        3: 256,   # Mar
+        4: 382,   # Apr
+        5: 509,   # May
+        6: 636,   # Jun
+        7: 764,   # Jul
+        8: 892,   # Aug
+        9: 1020,  # Sep
+        10: 1148, # Oct
+        11: 1276, # Nov
+        12: 1404, # Dec
+    }
+    offset_row = month_offset_map.get(month_value)
+    if offset_row:
+        sumif_start = column_index_from_string("BU")
+        sumif_end   = column_index_from_string("CC")
+
+        # mulai persis dari sort_start (di kode kamu sort_start = header+3, jadi sudah benar)
+        for r in range(sort_start, sort_end + 1):  # mulai dari sort_start langsung
+            for c in range(sumif_start, sumif_end + 1):
+                col_letter = get_column_letter(c)
+                # =IFERROR(SUMIF(OFFSET($TD$off;0;0;1;1428); col$off+1; OFFSET($TDrow;0;0;1;1428)) ; "NULL")
+                formula = (
+                    f'=IFERROR('
+                    f'SUMIF(OFFSET($TD${offset_row}{sep}0{sep}0{sep}1{sep}1428)'
+                    f'{sep}{col_letter}${offset_row+1}'
+                    f'{sep}OFFSET($TD{r}{sep}0{sep}0{sep}1{sep}1428))'
+                    f'{sep}\"NULL\")'
+                )
+                sheet_b[f"{col_letter}{r}"].value = formula
 
     # --- Apply font coloring rules ---
     apply_font_colors(sheet_b, start_row=sort_start, end_row=sort_end)
