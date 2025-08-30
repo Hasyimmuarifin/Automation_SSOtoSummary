@@ -140,12 +140,15 @@ def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, he
                     sheet_b.cell(row=dest_row, column=col_idx_b).value = val
             else:
                 sheet_b.cell(row=dest_row, column=col_idx_b).value = val
+                
+        # helper untuk track kolom yang tidak boleh dihapus
+        protected_columns = set(key_field_names) | {"Status"}
 
         if match_row:
-            # --- UPDATE: clear non-key columns, then refill with latest values ---
+            # --- UPDATE: clear non-protected columns, then refill with latest values ---
             for col_name, col_letter_b in column_mapping.items():
-                if col_name in key_field_names:
-                    continue  # keep keys
+                if col_name in protected_columns:
+                    continue  # keep keys + Status
                 col_b = column_index_from_string(col_letter_b)
                 sheet_b.cell(row=match_row, column=col_b).value = None
 
@@ -357,15 +360,6 @@ def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, he
         right_columns.extend(range(start_idx, end_idx + 1))
 
     right_iter = iter(right_columns)  # supaya bisa maju sesuai definisi blok fc
-
-    # # panjang total cell yang akan diisi (9 blok × jumlah kolom per blok)
-    # total_cols = sum(
-    #     column_index_from_string(end) - column_index_from_string(start) + 1
-    #     for start, end in custom_formula_columns
-    # )
-    # right_range = list(range(right_start, right_start + total_cols))
-
-    # right_iter = iter(right_range)  # supaya bisa jalan terus maju
 
     for start_col, end_col in custom_formula_columns:
         start_idx = column_index_from_string(start_col)
