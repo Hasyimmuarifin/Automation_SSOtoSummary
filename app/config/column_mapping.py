@@ -10,7 +10,7 @@ column_mapping = {
     # Schedule
     'ETA': 'J',
     'ETB': 'K',
-    'ETD': 'L',
+    # 'ETD': 'L',
 
     ## COAL BLENDING
     # Own Coal

@@ -284,13 +284,14 @@ def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, he
         sheet_b,
         start_row=sort_start,
         end_row=sort_end,
-        included_columns=['B', 'BJ', 'BO', 'ANO', 'ANQ', 'ANS', 'ANT', 'ANU', 'ANX', 'AOA', 'AOB', 'AOC', 'AOD', 'AOE', 'AOF', 'AOH', 'AOI', 'AOJ', 'AOK'],
+        included_columns=['B', 'L', 'BJ', 'BO', 'ANO', 'ANQ', 'ANS', 'ANT', 'ANU', 'ANX', 'AOA', 'AOB', 'AOC', 'AOD', 'AOE', 'AOF', 'AOH', 'AOI', 'AOJ', 'AOK'],
         formulas={
             # 'B': f"=ROW()-ROW($B${sort_start})+1", # nomor urut otomatis
+            'L': '=IF(H{row}= "BoCT", K{row}+ (BJ{row}/(ANO{row}*24)), K{row}+(BJ{row}/AOD{row}))',
             'BJ': '=IFERROR(SUM(N{row}:BI{row}),"NULL")',
             'BO': '=(SUMIF($N$892:$BI$892,D{row},N{row}:BI{row}))/BJ{row}',
             # 'AKK': '=(AOH{row}/BJ{row})*-1',
-            'ANO': '=IFERROR(BJ{row}/AOA{row},0)',
+            'ANO': '=2000',
             'ANQ': '=J{row}',
             'ANS': '=ANQ{row}+(ANR{row}/24)',
             'ANT': '=K{row}',

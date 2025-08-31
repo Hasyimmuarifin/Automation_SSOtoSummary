@@ -97,10 +97,11 @@ def normalize_month_block_rows(sheet, month_blocks, reference_col=2, renumber_fu
 # 📌 mapping formula kolom → pattern (bisa diperluas sesuai kebutuhan)
 formulas={
     # 'B': f"=ROW()-ROW($B${sort_start})+1", # nomor urut otomatis
+    'L': '=IF(H{row}= "BoCT", K{row}+ (BJ{row}/(ANO{row}*24)), K{row}+(BJ{row}/AOD{row}))',
     'BJ': '=IFERROR(SUM(N{row}:BI{row}),"NULL")',
     'BO': '=(SUMIF($N$317:$BI$317,D{row},N{row}:BI{row}))/BJ{row}',
     # 'AKK': '=(AOH{row}/BJ{row})*-1',
-    'ANO': '=IFERROR(BJ{row}/AOA{row},0)',
+    'ANO': '=2000',
     'ANQ': '=J{row}',
     'ANS': '=ANQ{row}+(ANR{row}/24)',
     'ANT': '=K{row}',
