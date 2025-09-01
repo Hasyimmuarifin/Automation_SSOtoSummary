@@ -6,6 +6,7 @@ from .move_sheet import copy_sheet_full   # ✅ Utility to copy entire sheet
 from .renumber_blocks import renumber_month_blocks
 from .formula import reapply_formulas
 from .auto_separator import get_formula_separator
+from .backup_restore_plan import backup_plan_rows
 import openpyxl
 
 sep = get_formula_separator()
@@ -68,11 +69,13 @@ def run_excel_process(input_file: str, output_file: str) -> str:
 
     if sheet_loading_old:
         header_columns_old = get_header_columns_a(sheet_loading_old, column_mapping)
+
+        backup_plan_rows(wb, sheet_b)
         delete_old_plan_rows(sheet_b, sheet_loading_old, header_columns_old, column_mapping)
 
         # --- Step: Normalisasi blok bulan setelah delete plan rows ---
         month_blocks = renumber_month_blocks(sheet_b)
-        normalize_month_block_rows(sheet_b, month_blocks, reference_col=2, renumber_func=renumber_month_blocks, formulas=formulas)
+        normalize_month_block_rows(sheet_b, month_blocks, reference_col=2, renumber_func=renumber_month_blocks)
         # reapply_formulas(sheet_b,month_blocks, formulas)
 
         # hapus sheet lama

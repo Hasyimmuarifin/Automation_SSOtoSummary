@@ -74,10 +74,10 @@ def normalize_month_block_rows(sheet, month_blocks, reference_col=2, renumber_fu
             month_blocks = renumber_func(sheet)
             print(f"📌 Updated month_blocks: {month_blocks}")
 
-        # 🧮 Panggil reapply_formulas untuk blok ini
-        if formulas is not None:
-            print("✨ Reapplying formulas for current block...")
-            reapply_formulas(sheet, [(start_row, last_row)], formulas)
+        # # 🧮 Panggil reapply_formulas untuk blok ini
+        # if formulas is not None:
+        #     print("✨ Reapplying formulas for current block...")
+        #     reapply_formulas(sheet, [(start_row, last_row)], formulas)
 
         # 📝 Isi default untuk kolom BQ dan ANR jika kosong
         for row in range(start_row, last_row + 1):
@@ -149,10 +149,11 @@ def delete_old_plan_rows(sheet_b, sheet_loading_old, header_columns_a, column_ma
             sheet_b.delete_rows(row, 1)
 
     # --- Renumber ulang blok bulan ---
-    month_blocks = renumber_month_blocks(sheet_b)
+    renumber_month_blocks(sheet_b)
+    # month_blocks = renumber_month_blocks(sheet_b)
 
-    # 📌 setelah semua delete → reapply formula hanya dalam blok bulan
-    reapply_formulas(sheet_b, month_blocks, formulas)
+    # # 📌 setelah semua delete → reapply formula hanya dalam blok bulan
+    # reapply_formulas(sheet_b, month_blocks, formulas)
 
 def month_to_abbreviation(month_number):
     """
