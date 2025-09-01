@@ -189,6 +189,14 @@ def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, he
                 _write_value(current_row_b, col_name, col_a, col_b)
             current_row_b += 1
 
+    # 📝 Isi default untuk kolom BQ (Status) jika kosong (SEBELUM sorting)
+    print("📝 Updating BQ (Status) if Empty before sorting...")
+    for row in range(cut_start_row, current_row_b):
+        col_bq_val = str(sheet_b[f"BQ{row}"].value or "").upper().strip()
+        match True:
+            case _ if col_bq_val == "":
+                sheet_b[f"BQ{row}"].value = "Plan"
+
     # --- Define sorting range (covers entire original block + any appends) ---
     sort_start = cut_start_row
     sort_end = current_row_b - 1
@@ -265,13 +273,7 @@ def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, he
     # 📝 Isi default untuk kolom BQ dan ANR jika kosong
     print("📝 Updating BQ (Status) and ANR (Time) if Empty...")
     for row in range(sort_start, sort_end + 1):
-        col_bq_val = str(sheet_b[f"BQ{row}"].value or "").upper().strip()
         col_anr_val = str(sheet_b[f"ANR{row}"].value or "").upper().strip()
-
-        # Kolom BQ (Status) default "Plan"
-        match True:
-            case _ if col_bq_val == "":
-                sheet_b[f"BQ{row}"].value = "Plan"
 
         # Kolom ANR (Time) default 12
         match True:

@@ -74,20 +74,6 @@ def normalize_month_block_rows(sheet, month_blocks, reference_col=2, renumber_fu
             month_blocks = renumber_func(sheet)
             print(f"📌 Updated month_blocks: {month_blocks}")
 
-        # # 🧮 Panggil reapply_formulas untuk blok ini
-        # if formulas is not None:
-        #     print("✨ Reapplying formulas for current block...")
-        #     reapply_formulas(sheet, [(start_row, last_row)], formulas)
-
-        # 📝 Isi default untuk kolom BQ dan ANR jika kosong
-        for row in range(start_row, last_row + 1):
-            # Kolom BQ (Status) default "Plan"
-            if sheet[f"BQ{row}"].value in (None, ""):
-                sheet[f"BQ{row}"].value = "Plan"
-
-            # Kolom ANR (Time) default 12
-            if sheet[f"ANR{row}"].value in (None, ""):
-                sheet[f"ANR{row}"].value = 12
                 
         i += 1  # lanjut ke blok berikutnya dengan list yang sudah update
 
