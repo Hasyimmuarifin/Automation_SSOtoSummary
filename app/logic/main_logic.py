@@ -6,7 +6,7 @@ from .move_sheet import copy_sheet_full   # ✅ Utility to copy entire sheet
 from .renumber_blocks import renumber_month_blocks
 from .formula import reapply_formulas
 from .auto_separator import get_formula_separator
-from .backup_restore_plan import backup_plan_rows
+from .backup_restore_plan import backup_plan_rows, restore_plan_rows
 import openpyxl
 
 sep = get_formula_separator()
@@ -79,6 +79,9 @@ def run_excel_process(input_file: str, output_file: str) -> str:
 
         # hapus sheet lama
         wb.remove(sheet_loading_old)
+    else:
+        # Jika tidak ada sheet loading lama, tetap lakukan backup
+        backup_plan_rows(wb, sheet_b)
 
     # rename Loading2 → Loading
     sheet_loading_new.title = "Loading"
@@ -109,6 +112,8 @@ def run_excel_process(input_file: str, output_file: str) -> str:
             sheet_a, sheet_b, month_value,
             month_abbreviation, header_columns_a, column_mapping
         )
+
+        restore_plan_rows(wb, sheet_b)
 
         renumber_month_blocks(sheet_b)
 
