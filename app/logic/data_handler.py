@@ -52,6 +52,8 @@ def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, he
     bl_col = column_index_from_string('BL')
     bm_col = column_index_from_string('BM')
     bs_col = column_index_from_string('BS')
+    akc_col = column_index_from_string('AKC')
+    aki_col = column_index_from_string('AKI')
     akk_col = column_index_from_string('AKK')
     akq_col = column_index_from_string('AKQ')
     extra_cols = [bl_col, bm_col, bs_col]
@@ -86,7 +88,18 @@ def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, he
             values_dict[cell.column] = cell.value
         akk_data_dict[vessel_name] = values_dict
 
-    # --- Clear old block (only N–BI values + BL/BM/BS values) ---
+    # --- Backup values AKC–AKI ---
+    akc_data_dict = {}
+    for row in sheet_b.iter_rows(min_row=cut_start_row, max_row=cut_end_row,
+                                min_col=akc_col, max_col=aki_col):
+        row_idx = row[0].row
+        vessel_name = sheet_b.cell(row=row_idx, column=5).value  # Column E (unique key)
+        values_dict = {}
+        for cell in row:
+            values_dict[cell.column] = cell.value
+        akc_data_dict[vessel_name] = values_dict
+
+    # --- Clear old block (only N–BI values + BL/BM/BS values), (AKC-AKQ values) ---
     for row in sheet_b.iter_rows(min_row=cut_start_row, max_row=cut_end_row,
                                  min_col=n_col, max_col=bi_col):
         for cell in row:
@@ -98,6 +111,10 @@ def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, he
             for cell in row:
                 cell.value = None
 
+    for row in sheet_b.iter_rows(min_row=cut_start_row, max_row=cut_end_row,
+                                min_col=akc_col, max_col=aki_col):
+        for cell in row:
+            cell.value = None
     for row in sheet_b.iter_rows(min_row=cut_start_row, max_row=cut_end_row,
                                 min_col=akk_col, max_col=akq_col):
         for cell in row:
@@ -245,6 +262,14 @@ def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, he
                     if font is not None:
                         target_cell.font = font
 
+    for i, vessel_name in enumerate(sorted_vessel_names):  # hasil sort (E)
+        values_dict = akc_data_dict.get(vessel_name)
+        if not values_dict:
+            continue
+
+        for col_idx, val in values_dict.items():
+            target_cell = sheet_b.cell(row=sort_start + i, column=col_idx)
+            target_cell.value = val
     for i, vessel_name in enumerate(sorted_vessel_names):  # hasil sort (E)
         values_dict = akk_data_dict.get(vessel_name)
         if not values_dict:
