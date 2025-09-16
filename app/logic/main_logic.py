@@ -7,6 +7,7 @@ from .renumber_blocks import renumber_month_blocks
 from .formula import reapply_formulas
 from .auto_separator import get_formula_separator
 from .backup_restore_plan import backup_plan_rows, restore_plan_rows
+from .fill_empty_with_zero import fill_empty_range_with_zero
 import openpyxl
 
 sep = get_formula_separator()
@@ -57,6 +58,14 @@ def run_excel_process(input_file: str, output_file: str) -> str:
 
     # Step 1: Copy sheet "Loading" baru ke source, namanya "Loading2"
     copy_sheet_full(input_file, output_file, sheet_name="Loading", new_name="Loading2")
+
+    # Step 1.5: Buka workbook output_file untuk isi cell kosong → 0
+    wb_temp = openpyxl.load_workbook(input_file)
+    for target_sheet in ["Loading", "Loading2"]:
+        if target_sheet in wb_temp.sheetnames:
+            fill_empty_range_with_zero(wb_temp[target_sheet], check_col="A", start_col="O", end_col="AW", start_row=2)
+    wb_temp.save(input_file)
+    wb_temp.close()
 
     # Step 2: Open the workbook for processing
     wb = openpyxl.load_workbook(input_file)
