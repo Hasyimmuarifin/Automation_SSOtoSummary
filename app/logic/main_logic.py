@@ -4,7 +4,6 @@ from .helpers import month_to_abbreviation, get_header_columns_a, normalize_mont
 from .data_handler import process_data_per_month
 from .move_sheet import copy_sheet_full   # ✅ Utility to copy entire sheet
 from .renumber_blocks import renumber_month_blocks
-from .formula import reapply_formulas
 from .auto_separator import get_formula_separator
 from .backup_restore_plan import backup_plan_rows, restore_plan_rows
 from .fill_empty_with_zero import fill_empty_range_with_zero
@@ -60,59 +59,84 @@ def run_excel_process(input_file: str, output_file: str, selected_month: int) ->
     copy_sheet_full(input_file, output_file, sheet_name="Loading", new_name="Loading2")
 
     # Step 1.5: Buka workbook output_file untuk isi cell kosong → 0
+    print(f"[INFO] Membuka workbook {input_file} untuk mengisi cell kosong dengan 0...")
     wb_temp = openpyxl.load_workbook(input_file)
     for target_sheet in ["Loading", "Loading2"]:
         if target_sheet in wb_temp.sheetnames:
+            print(f"[OK] Sheet '{target_sheet}' ditemukan. Mengisi cell kosong di range O:AW mulai dari row 2...")
             fill_empty_range_with_zero(wb_temp[target_sheet], check_col="A", start_col="O", end_col="AW", start_row=2)
+        else:
+            print(f"[WARNING] Sheet '{target_sheet}' tidak ditemukan, dilewati.")
+
+    print(f"[INFO] Menyimpan perubahan ke {input_file}...")
     wb_temp.save(input_file)
     wb_temp.close()
 
     # Step 2: Open the workbook for processing
+    print(f"[INFO] Membuka kembali workbook {input_file} untuk diproses...")
     wb = openpyxl.load_workbook(input_file)
+
+    print("[INFO] Membuka sheet 'ITM Summary' sebagai sheet tujuan hasil proses...")
     sheet_b = wb['ITM Summary']     # Destination sheet (processed results)
 
     # ambil sheet lama (Loading) jika ada
-    sheet_loading_old = wb['Loading'] if 'Loading' in wb.sheetnames else None
+    if 'Loading' in wb.sheetnames:
+        sheet_loading_old = wb['Loading']
+        print("[OK] Sheet 'Loading' lama ditemukan.")
+    else:
+        sheet_loading_old = None
+        print("[INFO] Sheet 'Loading' lama tidak ditemukan.")
+
     sheet_loading_new = wb['Loading2']
+    print("[OK] Sheet 'Loading2' ditemukan dan siap digunakan.")
 
     if sheet_loading_old:
-        header_columns_old = get_header_columns_a(sheet_loading_old, column_mapping)
-
+        print("[INFO] Sheet 'Loading' lama ditemukan, lakukan backup & hapus plan rows...")
         backup_plan_rows(wb, sheet_b)
         delete_or_clear_plan_rows(sheet_b, column_mapping, selected_month)
 
         # --- Step: Normalisasi blok bulan setelah delete plan rows ---
+        print("[INFO] Normalisasi blok bulan setelah delete plan rows...")
         month_blocks = renumber_month_blocks(sheet_b)
         normalize_month_block_rows(sheet_b, month_blocks, reference_col=2, renumber_func=renumber_month_blocks)
-        # reapply_formulas(sheet_b,month_blocks, formulas)
 
         # hapus sheet lama
+        print("[INFO] Menghapus sheet 'Loading' lama...")
         wb.remove(sheet_loading_old)
     else:
         # Jika tidak ada sheet loading lama, tetap lakukan backup
+        print("[INFO] Sheet 'Loading' lama tidak ada. Tetap lakukan backup & hapus plan rows...")
         backup_plan_rows(wb, sheet_b)
         delete_or_clear_plan_rows(sheet_b, column_mapping, selected_month)
 
         # --- Step: Normalisasi blok bulan setelah delete plan rows ---
+        print("[INFO] Normalisasi blok bulan setelah delete plan rows...")
         month_blocks = renumber_month_blocks(sheet_b)
         normalize_month_block_rows(sheet_b, month_blocks, reference_col=2, renumber_func=renumber_month_blocks)
 
     # rename Loading2 → Loading
+    print("[INFO] Rename sheet 'Loading2' menjadi 'Loading'...")
     sheet_loading_new.title = "Loading"
     sheet_a = wb['Loading']
 
     # Get column positions based on defined mapping
+    print("[INFO] Membaca header kolom dari sheet 'Loading'...")
     header_columns_a = get_header_columns_a(sheet_a, column_mapping)
 
     # A set to track already processed months (to avoid duplicates)
     processed_months = set()
 
     # Step 3: Iterate through each row in the source sheet
+    print("[INFO] Mulai iterasi setiap row pada sheet 'Loading'...")
     for row in range(2, sheet_a.max_row + 1):  # Start from row 2 (skip header)
         month_value = sheet_a.cell(row=row, column=header_columns_a['Month']).value
 
         # Validate the month value: must be an integer and not already processed
-        if not isinstance(month_value, int) or month_value in processed_months:
+        if not isinstance(month_value, int):
+            print(f"[WARNING] Row {row}: Nilai bulan tidak valid ({month_value}), dilewati.")
+            continue
+        if month_value in processed_months:
+            print(f"[INFO] Row {row}: Bulan {month_value} sudah diproses, dilewati.")
             continue
 
         # Mark this month as processed
@@ -120,6 +144,7 @@ def run_excel_process(input_file: str, output_file: str, selected_month: int) ->
 
         # Convert numeric month to abbreviation (e.g., 1 -> Jan)
         month_abbreviation = month_to_abbreviation(month_value)
+        print(f"[INFO] Row {row}: Memproses data bulan {month_value} ({month_abbreviation})...")
 
         # Step 4: Process data for this month
         process_data_per_month(
@@ -127,11 +152,13 @@ def run_excel_process(input_file: str, output_file: str, selected_month: int) ->
             month_abbreviation, header_columns_a, column_mapping
         )
 
-
         renumber_month_blocks(sheet_b)
+        print(f"[OK] Data bulan {month_value} ({month_abbreviation}) selesai diproses.")
 
+    print("[INFO] Restore plan rows setelah proses semua bulan...")
     restore_plan_rows(wb, sheet_b)
 
     # Step 5: Save the result back to the input file (final output)
+    print(f"[INFO] Menyimpan hasil akhir ke file {input_file}...")
     wb.save(input_file)
-    return f"🎉 Processing complete! Data copied and saved to {input_file}"
+    return f"🎉 Processing Complete! Data Copied and Saved to 💾 {input_file}"
