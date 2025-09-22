@@ -18,7 +18,7 @@ python -m PyInstaller ^
     --clean ^
     --onefile ^
     --windowed ^
-    --icon=assets\SSO_background.ico ^
+    --icon=assets\SSO_Logo.ico ^
     --name "SSO Automation" ^
     --add-data "assets;assets" ^
     --add-data "style;style" ^
