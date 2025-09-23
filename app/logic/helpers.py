@@ -1,28 +1,23 @@
 import datetime
 # import openpyxl
-from .renumber_blocks import renumber_month_blocks
 from openpyxl.utils import column_index_from_string, get_column_letter
 from .auto_separator import get_formula_separator
-from .formula import reapply_formulas
 from copy import copy
 
 sep = get_formula_separator()
 
-def normalize_month_block_rows(sheet, month_blocks, reference_col=2, renumber_func=None, formulas=None):
+def normalize_month_block_rows(sheet, month_blocks, reference_col=2, renumber_func=None):
     """
     Normalisasi setiap blok bulan di sheet Excel:
     - Setiap blok bulan minimal 100 baris.
     - Jika kurang, tambahkan baris baru.
     - Copy style dan formula dari baris terakhir yang memiliki value di kolom B.
     - Setelah setiap blok selesai → renumbering blocks agar update.
-    - Setelah setiap blok selesai → panggil reapply_formulas untuk blok itu.
     - Print log proses untuk debugging.
 
     Args:
         sheet: openpyxl worksheet object
-        month_blocks: list of tuples (start_row, end_row) hasil renumber_month_blocks
         reference_col: kolom yang dijadikan acuan (default 2 = kolom B)
-        renumber_func: fungsi untuk renumbering blok bulan (misalnya renumber_month_blocks)
         formulas: daftar formula yang akan diaplikasikan
     """
     print("🔧 Starting normalize_month_block_rows...")
