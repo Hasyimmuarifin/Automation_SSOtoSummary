@@ -2,6 +2,54 @@
 
 from openpyxl.comments import Comment
 
+def get_match_score(row_vals, backup_vals, target_col, COL_C, COL_D, COL_E, COL_G):
+    """
+    Hitung skor kecocokan dengan prioritas dinamis berdasarkan kolom asal komentar.
+    row_vals    = (month, company, vessel, enduser)
+    backup_vals = (month_bkp, company_bkp, vessel_bkp, enduser_bkp)
+    target_col  = kolom tempat komentar berasal
+    """
+    month_val, company_val, vessel_val, enduser_val = row_vals
+    month_bkp, company_bkp, vessel_bkp, enduser_bkp = backup_vals
+
+    # default priority
+    priority = {
+        "enduser": 8,
+        "vessel": 4,
+        "month": 2,
+        "company": 1,
+    }
+
+    # kalau komentar berasal dari kolom Vessel → Vessel lebih penting
+    if target_col == COL_E:
+        priority["vessel"] = 10
+        priority["enduser"] = 5
+
+    # kalau komentar berasal dari kolom EndUser → EndUser lebih penting
+    elif target_col == COL_G:
+        priority["enduser"] = 10
+        priority["vessel"] = 5
+
+    # kalau komentar berasal dari kolom Month → Month paling penting
+    elif target_col == COL_C:
+        priority["month"] = 10
+
+    # kalau komentar berasal dari kolom Company → Company paling penting
+    elif target_col == COL_D:
+        priority["company"] = 10
+
+    score = 0
+    if month_val == month_bkp:
+        score += priority["month"]
+    if company_val == company_bkp:
+        score += priority["company"]
+    if vessel_val == vessel_bkp:
+        score += priority["vessel"]
+    if enduser_val == enduser_bkp:
+        score += priority["enduser"]
+
+    return score
+
 def backup_plan_rows(wb, sheet_b, backup_sheet_name="Backup_Plan"):
     """
     Backup baris dengan status 'Plan' atau 'Complete' (kolom BQ) ke sheet sementara.
@@ -137,7 +185,6 @@ def restore_plan_rows(wb, sheet_b, backup_sheet_name="Backup_Plan"):
     for month_bkp, company_bkp, vessel_bkp, enduser_bkp, col, txt in comment_rows:
         best_row = None
         best_score = -1
-        best_match_details = None
 
         print("\n[DEBUG] --- Mencari match untuk komentar ---")
         print(f"Target Backup → Month={month_bkp}, Company={company_bkp}, Vessel={vessel_bkp}, EndUser={enduser_bkp}, Col={col}")
@@ -148,45 +195,15 @@ def restore_plan_rows(wb, sheet_b, backup_sheet_name="Backup_Plan"):
             vessel_val  = sheet_b.cell(r, COL_E).value
             enduser_val = sheet_b.cell(r, COL_G).value
 
-            score = 0
-            if enduser_val == enduser_bkp:
-                score += 8
-            if vessel_val == vessel_bkp:
-                score += 4
-            if month_val == month_bkp:
-                score += 2
-            if company_val == company_bkp:
-                score += 1
-
-            # Debug perbandingan
-            print(f"  [DEBUG] Row {r}: "
-                f"(Month={month_val}, Company={company_val}, Vessel={vessel_val}, EndUser={enduser_val}) "
-                f"=> Score={score}")
+            score = get_match_score(
+                (month_val, company_val, vessel_val, enduser_val),
+                (month_bkp, company_bkp, vessel_bkp, enduser_bkp),
+                col, COL_C, COL_D, COL_E, COL_G
+            )
 
             if score > best_score:
                 best_score = score
                 best_row = r
-                best_match_details = (month_val, company_val, vessel_val, enduser_val)
-
-            elif score == best_score and best_score > 0:
-                # tie-breaker (prioritas EndUser > Vessel > Month > Company)
-                tie_current = (
-                    int(enduser_val == enduser_bkp),
-                    int(vessel_val == vessel_bkp),
-                    int(month_val == month_bkp),
-                    int(company_val == company_bkp)
-                )
-                tie_best = (
-                    int(best_match_details[3] == enduser_bkp),
-                    int(best_match_details[2] == vessel_bkp),
-                    int(best_match_details[0] == month_bkp),
-                    int(best_match_details[1] == company_bkp)
-                )
-
-                if tie_current > tie_best:
-                    print(f"  [DEBUG] Tie-breaker: Row {r} lebih cocok dibanding kandidat sebelumnya (Row {best_row})")
-                    best_row = r
-                    best_match_details = (month_val, company_val, vessel_val, enduser_val)
 
         # restore kalau skornya cukup kuat
         if best_score >= 4 and best_row:
@@ -202,12 +219,11 @@ def restore_plan_rows(wb, sheet_b, backup_sheet_name="Backup_Plan"):
                 "Text": txt,
                 "BestScore": best_score
             })
-            print(f"[RESTORE] Tidak menemukan match cukup kuat untuk comment "
-                f"(EndUser={enduser_bkp}, Vessel={vessel_bkp}, Month={month_bkp}, Company={company_bkp}) | Score={best_score}")
 
-    # fallback → buat sheet khusus untuk komentar yang tidak bisa direstore
+    # fallback unmatched → buat sheet khusus untuk komentar yang tidak bisa direstore
     if unmatched_comments:
         # filter: buang data kosong / header palsu
+        fallback_name = "Unmatched_Comments"
         valid_unmatched = []
         for item in unmatched_comments:
             if (
@@ -229,16 +245,14 @@ def restore_plan_rows(wb, sheet_b, backup_sheet_name="Backup_Plan"):
                 ws_fallback = wb[fallback_name]
             else:
                 ws_fallback = wb.create_sheet(fallback_name)
-                ws_fallback.append(["Month", "Company", "Vessel", "EndUser", "Column", "Text", "BestScore", "Note"])
+                ws_fallback.append(["Month", "Company", "Vessel", "EndUser", "Column", "Text", "BestScore"])
 
             for item in unmatched_comments:
-                note = "No strong match found (score < 4)"
                 ws_fallback.append([
                     item["Month"], item["Company"], item["Vessel"], item["EndUser"],
-                    item["Column"], item["Text"], item["BestScore"], note
+                    item["Column"], item["Text"], item["BestScore"]
                 ])
-
-            print(f"[RESTORE] {len(unmatched_comments)} komentar gagal dipetakan " f"→ disimpan di sheet '{fallback_name}'")
+            print(f"[RESTORE] {len(unmatched_comments)} komentar gagal dipetakan → disimpan di sheet '{fallback_name}'")
 
     # hapus sheet backup setelah selesai
     del wb[backup_sheet_name]

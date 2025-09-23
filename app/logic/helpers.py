@@ -74,6 +74,111 @@ def normalize_month_block_rows(sheet, month_blocks, reference_col=2, renumber_fu
 
     print("✅ normalize_month_block_rows complete.")
 
+def insert_boct_formulas(sheet, month_blocks, reference_col=2, loadport_col="H"):
+    """
+    Untuk setiap blok bulan:
+    - Cari baris terakhir dengan isi di kolom B (reference_col).
+    - Cari boct_start_row (baris pertama dalam blok dengan 'BoCT' di kolom H).
+    - Cari boct_end_row (baris terakhir dalam blok dengan 'BoCT' di kolom H).
+    - Tambahkan formula di kolom AKC dan AKK, 2 baris di bawah last_row.
+    """
+
+    loadport_idx = column_index_from_string(loadport_col)  # kolom H
+    akc_idx = column_index_from_string("AKC")
+    akk_idx = column_index_from_string("AKK")
+    bj_idx = column_index_from_string("BJ")
+
+    for block_no, (start_row, end_row) in enumerate(month_blocks, start=1):
+        print(f"\n📦 Processing BoCT Block #{block_no}: start={start_row}, end={end_row}")
+
+        # Cari last_row di kolom B
+        last_row = end_row
+        for row in range(end_row, start_row - 1, -1):
+            if sheet.cell(row=row, column=reference_col).value not in (None, ""):
+                last_row = row
+                break
+        print(f"📌 Last row with value in col B: {last_row}")
+
+        # Cari boct_start_row & boct_end_row di kolom H
+        boct_start_row, boct_end_row = None, None
+        for row in range(start_row, end_row + 1):
+            val = sheet.cell(row=row, column=loadport_idx).value
+            if isinstance(val, str) and val.strip().lower() == "boct":
+                if boct_start_row is None:
+                    boct_start_row = row
+                boct_end_row = row  # overwrite terus → hasilnya terakhir
+        print(f"🔎 boct_start_row={boct_start_row}, boct_end_row={boct_end_row}")
+
+        if boct_start_row and boct_end_row:
+            target_row = last_row + 2  # dua baris di bawah last_row
+            akc_col = get_column_letter(akc_idx)
+            akk_col = get_column_letter(akk_idx)
+            bj_col = get_column_letter(bj_idx)
+
+            akc_formula = f"=SUMPRODUCT(${akc_col}${boct_start_row}:${akc_col}${boct_end_row}{sep}{bj_col}{boct_start_row}:{bj_col}{boct_end_row})/SUM(${bj_col}${boct_start_row}:${bj_col}${boct_end_row})"
+            akk_formula = f"=SUMPRODUCT(${akk_col}${boct_start_row}:${akk_col}${boct_end_row}{sep}{bj_col}{boct_start_row}:{bj_col}{boct_end_row})/SUM(${bj_col}${boct_start_row}:${bj_col}${boct_end_row})"
+
+            sheet.cell(row=target_row, column=akc_idx).value = akc_formula
+            sheet.cell(row=target_row, column=akk_idx).value = akk_formula
+
+            print(f"✅ Inserted AKC formula at {akc_col}{target_row}: {akc_formula}")
+            print(f"✅ Inserted AKK formula at {akk_col}{target_row}: {akk_formula}")
+        else:
+            print("⚠️ Tidak ditemukan baris dengan Load Port = 'BoCT' pada blok ini.")
+
+def insert_mahakam_formulas(sheet, month_blocks, reference_col=2, loadport_col="H"):
+    """
+    Untuk setiap blok bulan:
+    - Cari baris terakhir dengan isi di kolom B (reference_col).
+    - Cari boct_start_row (baris pertama dalam blok dengan 'SMD Anc', 'GPK Port', 'JBG Anc', 'Jorong', 'Bunyut' di kolom H).
+    - Cari boct_end_row (baris terakhir dalam blok dengan 'SMD Anc', 'GPK Port', 'JBG Anc', 'Jorong', 'Bunyut' di kolom H).
+    - Tambahkan formula di kolom AKC dan AKK, 3 baris di bawah last_row.
+    """
+
+    loadport_idx = column_index_from_string(loadport_col)  # kolom H
+    akc_idx = column_index_from_string("AKC")
+    akk_idx = column_index_from_string("AKK")
+    bj_idx = column_index_from_string("BJ")
+
+    target_loadports = {"smd anc", "gpk port", "jbg anc", "jorong", "bunyut"}
+
+    for block_no, (start_row, end_row) in enumerate(month_blocks, start=1):
+        print(f"\n📦 Processing Mahakam Block #{block_no}: start={start_row}, end={end_row}")
+
+        # Cari last_row di kolom B
+        last_row = end_row
+        for row in range(end_row, start_row - 1, -1):
+            if sheet.cell(row=row, column=reference_col).value not in (None, ""):
+                last_row = row
+                break
+        print(f"📌 Last row with value in col B: {last_row}")
+
+        # Cari mahakam_start_row & mahakam_end_row untuk Mahakam
+        mahakam_start_row, mahakam_end_row = None, None
+        for row in range(start_row, end_row + 1):
+            val = sheet.cell(row=row, column=loadport_idx).value
+            if isinstance(val, str) and val.strip().lower() in target_loadports:
+                if mahakam_start_row is None:
+                    mahakam_start_row = row
+                mahakam_end_row = row  # overwrite terus → hasilnya terakhir
+        print(f"🔎 mahakam_start_row={mahakam_start_row}, mahakam_end_row={mahakam_end_row}")
+
+        if mahakam_start_row and mahakam_end_row:
+            target_row = last_row + 3  # tiga baris di bawah last_row
+            akc_col = get_column_letter(akc_idx)
+            akk_col = get_column_letter(akk_idx)
+            bj_col = get_column_letter(bj_idx)
+
+            akc_formula = f"=SUMPRODUCT(${akc_col}${mahakam_start_row}:${akc_col}${mahakam_end_row}{sep}{bj_col}{mahakam_start_row}:{bj_col}{mahakam_end_row})/SUM(${bj_col}${mahakam_start_row}:${bj_col}${mahakam_end_row})"
+            akk_formula = f"=SUMPRODUCT(${akk_col}${mahakam_start_row}:${akk_col}${mahakam_end_row}{sep}{bj_col}{mahakam_start_row}:{bj_col}{mahakam_end_row})/SUM(${bj_col}${mahakam_start_row}:${bj_col}${mahakam_end_row})"
+
+            sheet.cell(row=target_row, column=akc_idx).value = akc_formula
+            sheet.cell(row=target_row, column=akk_idx).value = akk_formula
+
+            print(f"✅ Inserted AKC formula at {akc_col}{target_row}: {akc_formula}")
+            print(f"✅ Inserted AKK formula at {akk_col}{target_row}: {akk_formula}")
+        else:
+            print("⚠️ Tidak ditemukan baris dengan Load Port = 'SMD Anc', 'GPK Port', 'JBG Anc', 'Jorong', 'Bunyut' pada blok ini.")
 
 # 📌 mapping formula kolom → pattern (bisa diperluas sesuai kebutuhan)
 formulas={
