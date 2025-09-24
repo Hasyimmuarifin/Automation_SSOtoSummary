@@ -327,6 +327,7 @@ def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, he
             'AOB': '=(ANT{row}-ANS{row})*24',
             'AOC': '=(ANU{row}-ANS{row})*24',
             'AOD': f'=IF(BS{{row}}="Stevedore"{sep}10000{sep}IF(H{{row}}="BoCT"{sep}40000{sep}IF(H{{row}}="SMD Anc"{sep}25000{sep}IF(H{{row}}="GPK Port"{sep}10000{sep}IF(H{{row}}="Bunyut"{sep}25000{sep}IF(H{{row}}="Jorong"{sep}7000{sep}IF(H{{row}}="JBG Anc"{sep}10000{sep}0)))))))',
+            'AOE': '=(BJ{row}/AOD{row})*24',
             'AOF': '=(AOC{row}-AOE{row})/24',
             'AOH': '=AOF{row}*AOG{row}',
             'AOI': '=AOF{row}*-1',
