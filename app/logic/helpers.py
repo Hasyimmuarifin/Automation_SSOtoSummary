@@ -104,41 +104,58 @@ formulas={
     'AOK': '=AOH{row}/2'
 }
 
-def delete_old_plan_rows(sheet_b, sheet_loading_old, header_columns_a, column_mapping):
+# def delete_old_plan_rows(sheet_b, sheet_loading_old, header_columns_a, column_mapping):
+#     """
+#     Hapus baris di ITM Summary (sheet_b) yang memiliki Status='Plan'
+#     dan (Company, Vessel name, End user) cocok dengan data di sheet Loading lama.
+#     Setelah penghapusan, formulas di setiap blok bulan di-reapply ulang.
+#     """
+#     plan_rows_keys = set()
+
+#     # ambil keys dari Loading lama
+#     for row in range(2, sheet_loading_old.max_row + 1):
+#         comp = sheet_loading_old.cell(row=row, column=header_columns_a['Company']).value
+#         ves  = sheet_loading_old.cell(row=row, column=header_columns_a['Vessel name']).value
+#         eus  = sheet_loading_old.cell(row=row, column=header_columns_a['End user']).value
+#         plan_rows_keys.add((comp, ves, eus))
+
+#     company_col = column_index_from_string(column_mapping['Company'])
+#     vessel_col  = column_index_from_string(column_mapping['Vessel name'])
+#     enduser_col = column_index_from_string(column_mapping['End user'])
+#     status_col  = column_index_from_string(column_mapping['Status'])
+
+#     # iterasi terbalik agar aman delete row --> Hapus baris yang match
+#     for row in range(sheet_b.max_row, 1, -1):
+#         comp = sheet_b.cell(row=row, column=company_col).value
+#         ves  = sheet_b.cell(row=row, column=vessel_col).value
+#         eus  = sheet_b.cell(row=row, column=enduser_col).value
+#         status = sheet_b.cell(row=row, column=status_col).value
+#         if status == "Plan" and (comp, ves, eus) in plan_rows_keys:
+#             sheet_b.delete_rows(row, 1)
+
+#     # --- Renumber ulang blok bulan ---
+#     renumber_month_blocks(sheet_b)
+#     # month_blocks = renumber_month_blocks(sheet_b)
+
+#     # # 📌 setelah semua delete → reapply formula hanya dalam blok bulan
+#     # reapply_formulas(sheet_b, month_blocks, formulas)
+
+def delete_plan_rows(sheet_b, column_mapping):
     """
-    Hapus baris di ITM Summary (sheet_b) yang memiliki Status='Plan'
-    dan (Company, Vessel name, End user) cocok dengan data di sheet Loading lama.
-    Setelah penghapusan, formulas di setiap blok bulan di-reapply ulang.
+    Hapus semua baris di sheet_b yang memiliki Status = 'Plan'
+    tanpa perlu referensi sheet loading lama.
+    Setelah penghapusan, blok bulan dinomori ulang.
     """
-    plan_rows_keys = set()
+    status_col = column_index_from_string(column_mapping['Status'])
 
-    # ambil keys dari Loading lama
-    for row in range(2, sheet_loading_old.max_row + 1):
-        comp = sheet_loading_old.cell(row=row, column=header_columns_a['Company']).value
-        ves  = sheet_loading_old.cell(row=row, column=header_columns_a['Vessel name']).value
-        eus  = sheet_loading_old.cell(row=row, column=header_columns_a['End user']).value
-        plan_rows_keys.add((comp, ves, eus))
-
-    company_col = column_index_from_string(column_mapping['Company'])
-    vessel_col  = column_index_from_string(column_mapping['Vessel name'])
-    enduser_col = column_index_from_string(column_mapping['End user'])
-    status_col  = column_index_from_string(column_mapping['Status'])
-
-    # iterasi terbalik agar aman delete row --> Hapus baris yang match
+    # Iterasi terbalik biar aman saat delete row
     for row in range(sheet_b.max_row, 1, -1):
-        comp = sheet_b.cell(row=row, column=company_col).value
-        ves  = sheet_b.cell(row=row, column=vessel_col).value
-        eus  = sheet_b.cell(row=row, column=enduser_col).value
         status = sheet_b.cell(row=row, column=status_col).value
-        if status == "Plan" and (comp, ves, eus) in plan_rows_keys:
+        if str(status).strip().upper() == "PLAN":   # normalisasi ke huruf besar
             sheet_b.delete_rows(row, 1)
 
     # --- Renumber ulang blok bulan ---
     renumber_month_blocks(sheet_b)
-    # month_blocks = renumber_month_blocks(sheet_b)
-
-    # # 📌 setelah semua delete → reapply formula hanya dalam blok bulan
-    # reapply_formulas(sheet_b, month_blocks, formulas)
 
 def month_to_abbreviation(month_number):
     """

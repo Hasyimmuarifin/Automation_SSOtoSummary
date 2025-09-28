@@ -1,6 +1,6 @@
 # main_logic.py
 from config.column_mapping import column_mapping
-from .helpers import month_to_abbreviation, get_header_columns_a, delete_old_plan_rows, normalize_month_block_rows
+from .helpers import month_to_abbreviation, get_header_columns_a, normalize_month_block_rows, delete_plan_rows
 from .data_handler import process_data_per_month
 from .move_sheet import copy_sheet_full   # ✅ Utility to copy entire sheet
 from .renumber_blocks import renumber_month_blocks
@@ -79,7 +79,8 @@ def run_excel_process(input_file: str, output_file: str) -> str:
         header_columns_old = get_header_columns_a(sheet_loading_old, column_mapping)
 
         backup_plan_rows(wb, sheet_b)
-        delete_old_plan_rows(sheet_b, sheet_loading_old, header_columns_old, column_mapping)
+        delete_plan_rows(sheet_b, column_mapping)
+        # delete_old_plan_rows(sheet_b, sheet_loading_old, header_columns_old, column_mapping)
 
         # --- Step: Normalisasi blok bulan setelah delete plan rows ---
         month_blocks = renumber_month_blocks(sheet_b)
@@ -91,6 +92,11 @@ def run_excel_process(input_file: str, output_file: str) -> str:
     else:
         # Jika tidak ada sheet loading lama, tetap lakukan backup
         backup_plan_rows(wb, sheet_b)
+        delete_plan_rows(sheet_b, column_mapping)
+
+        # --- Step: Normalisasi blok bulan setelah delete plan rows ---
+        month_blocks = renumber_month_blocks(sheet_b)
+        normalize_month_block_rows(sheet_b, month_blocks, reference_col=2, renumber_func=renumber_month_blocks)
 
     # rename Loading2 → Loading
     sheet_loading_new.title = "Loading"
