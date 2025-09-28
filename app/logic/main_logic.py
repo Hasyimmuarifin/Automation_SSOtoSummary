@@ -128,9 +128,8 @@ def run_excel_process(input_file: str, output_file: str) -> str:
             month_abbreviation, header_columns_a, column_mapping
         )
 
-        restore_plan_rows(wb, sheet_b)
-
         renumber_month_blocks(sheet_b)
+    restore_plan_rows(wb, sheet_b)
 
     # Step 5: Save the result back to the input file (final output)
     wb.save(input_file)
