@@ -18,8 +18,8 @@ python -m PyInstaller ^
     --clean ^
     --onefile ^
     --windowed ^
-    --icon=assets\barageng.ico ^
-    --name "Automation SSO" ^
+    --icon=assets\SSO_background.ico ^
+    --name "SSO Automation" ^
     --add-data "assets;assets" ^
     --add-data "style;style" ^
     --add-data "config;config" ^
@@ -30,6 +30,6 @@ python -m PyInstaller ^
 
 echo ==========================================
 echo Build Selesai!
-echo File EXE ada di: dist\Automation SSO.exe
+echo File EXE ada di: dist\SSO Automation.exe
 echo ==========================================
 pause
