@@ -1,4 +1,5 @@
 import datetime
+import re
 from copy import copy
 from openpyxl.utils import column_index_from_string, get_column_letter
 from openpyxl.styles import PatternFill
@@ -74,7 +75,14 @@ def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, he
                     copy(cell.font)
                 )
             elif col_idx in extra_cols:
-                values_and_styles[col_idx] = (cell.value, None, None)  # value only
+                val = cell.value
+                # hanya ubah kalau ini formula (string yang dimulai dengan '=')
+                if isinstance(val, str) and val.startswith('='):
+                    # tangani juga referensi dengan $ (contoh: $BL$1022)
+                    # akan mengganti semua BL/BM<angka> jadi BL{ROW} (preserve $ jika ada)
+                    val = re.sub(r'(\$?(?:BL|BM)\$?)\d+', r'\1{ROW}', val, flags=re.IGNORECASE)
+                # simpan nilai yang sudah diproses (JANGAN pakai cell.value lagi)
+                values_and_styles[col_idx] = (val, None, None)  # value only
         cut_data_dict[vessel_name] = values_and_styles
 
     # --- Backup values AKK–AKQ ---
@@ -239,28 +247,36 @@ def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, he
         if not values_and_styles:
             continue
 
+        row_num = sort_start + i  # nomor baris nyata di Sheet B setelah sort
+
         for col_idx, (val, fill, font) in values_and_styles.items():
-            target_cell = sheet_b.cell(row=sort_start + i, column=col_idx)
+            target_cell = sheet_b.cell(row=row_num, column=col_idx)
 
             if vessel_name in updated_vessel_names:
-                # Updated rows:
+                # Untuk ROWS YANG DIUPDATE: hanya restore style untuk N–BI,
+                # dan SKIP restore value untuk extra_cols (BL/BM/BS)
                 if n_col <= col_idx <= bi_col:
                     # keep NEW value, restore only style
                     if fill is not None:
                         target_cell.fill = fill
                     if font is not None:
                         target_cell.font = font
-                elif col_idx in extra_cols:
-                    # keep NEW value in BL/BM/BS (do nothing)
-                    pass
+                # extra_cols : do nothing (keep new value)
+                continue
+
+            # UNTUK ROWS YANG TIDAK DIUPDATE: restore value (dan restore style untuk N–BI)
+            # jika value punya placeholder {ROW}, ganti jadi nomor baris aktual
+            if isinstance(val, str) and "{ROW}" in val:
+                target_cell.value = val.replace("{ROW}", str(row_num))
             else:
                 # Unchanged rows: restore previous values + styles
                 target_cell.value = val
-                if n_col <= col_idx <= bi_col:
-                    if fill is not None:
-                        target_cell.fill = fill
-                    if font is not None:
-                        target_cell.font = font
+
+            if n_col <= col_idx <= bi_col:
+                if fill is not None:
+                    target_cell.fill = fill
+                if font is not None:
+                    target_cell.font = font
 
     for i, vessel_name in enumerate(sorted_vessel_names):  # hasil sort (E)
         values_dict = akc_data_dict.get(vessel_name)
