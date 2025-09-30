@@ -37,13 +37,6 @@ def backup_plan_rows(wb, sheet_b, backup_sheet_name="Backup_Plan", debug=True):
     # sanity checks (debug)
     if debug:
         print(f"[DEBUG] sheet_b max_row={sheet_b.max_row}, max_column={sheet_b.max_column}")
-        print(f"[DEBUG] Indeks penting: AKC={COL_AKC}..AKQ={COL_AKQ} (count={COL_AKQ - COL_AKC + 1}), AON={COL_AON}, AOP={COL_AOP}, AOR={COL_AOR}, AOT={COL_AOT}, COL_MAX={COL_MAX}")
-        if COL_MAX < COL_AOT:
-            print(f"[WARN] COL_MAX ({COL_MAX}) < COL_AOT ({COL_AOT}) → akan menyesuaikan COL_MAX = COL_AOT")
-            COL_MAX = COL_AOT
-        # warn jika indeks kolom melebihi sheet actual
-        if any(c > sheet_b.max_column for c in (COL_AKC, COL_AKQ, COL_AON, COL_AOP, COL_AOR, COL_AOT, COL_MAX)):
-            print("[WARN] Salah satu indeks kolom yang dipakai melebihi sheet_b.max_column. Periksa mapping kolom Anda.")
 
     # hitungan expected
     ak_count = COL_AKQ - COL_AKC + 1
@@ -69,7 +62,7 @@ def backup_plan_rows(wb, sheet_b, backup_sheet_name="Backup_Plan", debug=True):
             if debug:
                 first_col_letter = get_column_letter(COL_AKC)
                 last_col_letter = get_column_letter(COL_AKQ)
-                print(f"[DEBUG] AK values ({first_col_letter}{row}..{last_col_letter}{row}) count={len(values)} sample: {values[:3]} ... {values[-3:]}")
+                print(f"[DEBUG] AK values ({first_col_letter}{row}..{last_col_letter}{row}) count={len(values)} sample: {values[:7]} ... {values[-7:]}")
 
             # ambil tambahan AON, AOP, AOR, AOT
             aon_values = []
