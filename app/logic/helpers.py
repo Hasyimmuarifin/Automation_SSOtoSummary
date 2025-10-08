@@ -86,6 +86,7 @@ def insert_boct_formulas(sheet, month_blocks, reference_col=2, loadport_col="H")
     loadport_idx = column_index_from_string(loadport_col)  # kolom H
     akc_idx = column_index_from_string("AKC")
     akk_idx = column_index_from_string("AKK")
+    ano_idx = column_index_from_string("ANO")
     bj_idx = column_index_from_string("BJ")
 
     for block_no, (start_row, end_row) in enumerate(month_blocks, start=1):
@@ -113,31 +114,43 @@ def insert_boct_formulas(sheet, month_blocks, reference_col=2, loadport_col="H")
             target_row = last_row + 2  # dua baris di bawah last_row
             akc_col = get_column_letter(akc_idx)
             akk_col = get_column_letter(akk_idx)
+            ano_col = get_column_letter(ano_idx)
             bj_col = get_column_letter(bj_idx)
 
             akc_formula = f"=SUMPRODUCT(${akc_col}${boct_start_row}:${akc_col}${boct_end_row}{sep}{bj_col}{boct_start_row}:{bj_col}{boct_end_row})/SUM(${bj_col}${boct_start_row}:${bj_col}${boct_end_row})"
             akk_formula = f"=SUMPRODUCT(${akk_col}${boct_start_row}:${akk_col}${boct_end_row}{sep}{bj_col}{boct_start_row}:{bj_col}{boct_end_row})/SUM(${bj_col}${boct_start_row}:${bj_col}${boct_end_row})"
+            ano_formula = f"=AVERAGE({ano_col}{boct_start_row}:{ano_col}{boct_end_row})"
 
             sheet.cell(row=target_row, column=akc_idx).value = akc_formula
             sheet.cell(row=target_row, column=akk_idx).value = akk_formula
+            sheet.cell(row=target_row, column=ano_idx).value = ano_formula
 
             print(f"✅ Inserted AKC formula at {akc_col}{target_row}: {akc_formula}")
             print(f"✅ Inserted AKK formula at {akk_col}{target_row}: {akk_formula}")
+            print(f"✅ Inserted ANO formula at {ano_col}{target_row}: {ano_formula}")
         else:
             print("⚠️ Tidak ditemukan baris dengan Load Port = 'BoCT' pada blok ini.")
 
-def insert_mahakam_formulas(sheet, month_blocks, reference_col=2, loadport_col="H"):
+def insert_mahakam_formulas(sheet, month_blocks, reference_col=2, loadport_col="H", vessel_col="E"):
     """
     Untuk setiap blok bulan:
     - Cari baris terakhir dengan isi di kolom B (reference_col).
-    - Cari boct_start_row (baris pertama dalam blok dengan 'SMD Anc', 'GPK Port', 'JBG Anc', 'Jorong', 'Bunyut' di kolom H).
-    - Cari boct_end_row (baris terakhir dalam blok dengan 'SMD Anc', 'GPK Port', 'JBG Anc', 'Jorong', 'Bunyut' di kolom H).
-    - Tambahkan formula di kolom AKC dan AKK, 3 baris di bawah last_row.
+    - Cari mahakam_start_row (baris pertama dalam blok dengan 'SMD Anc', 'GPK Port', 'JBG Anc', 'Jorong', 'Bunyut' di kolom H).
+    - Cari mahakam_end_row (baris terakhir dalam blok dengan 'SMD Anc', 'GPK Port', 'JBG Anc', 'Jorong', 'Bunyut' di kolom H).
+    - subset MV. dan BG. (kolom E, Name of Vessel) dari range mahakam
+    - Tambahkan formula:
+        • AKC & AKK → last_row + 3
+        • MV. (AKC) → last_row + 6
+        • BG. (AKC) → last_row + 7
+        • GLR TPH BoCT (ANO) → last_row + 2
+        • GLR TPH Mahakam (ANO) → last_row + 3
     """
 
     loadport_idx = column_index_from_string(loadport_col)  # kolom H
+    vessel_idx = column_index_from_string(vessel_col)      # kolom E
     akc_idx = column_index_from_string("AKC")
     akk_idx = column_index_from_string("AKK")
+    ano_idx = column_index_from_string("ANO")
     bj_idx = column_index_from_string("BJ")
 
     target_loadports = {"smd anc", "gpk port", "jbg anc", "jorong", "bunyut"}
@@ -153,7 +166,7 @@ def insert_mahakam_formulas(sheet, month_blocks, reference_col=2, loadport_col="
                 break
         print(f"📌 Last row with value in col B: {last_row}")
 
-        # Cari mahakam_start_row & mahakam_end_row untuk Mahakam
+        # Cari mahakam_start_row & mahakam_end_row untuk Mahakam (berdasarkan Load Port)
         mahakam_start_row, mahakam_end_row = None, None
         for row in range(start_row, end_row + 1):
             val = sheet.cell(row=row, column=loadport_idx).value
@@ -163,20 +176,62 @@ def insert_mahakam_formulas(sheet, month_blocks, reference_col=2, loadport_col="
                 mahakam_end_row = row  # overwrite terus → hasilnya terakhir
         print(f"🔎 mahakam_start_row={mahakam_start_row}, mahakam_end_row={mahakam_end_row}")
 
-        if mahakam_start_row and mahakam_end_row:
-            target_row = last_row + 3  # tiga baris di bawah last_row
-            akc_col = get_column_letter(akc_idx)
-            akk_col = get_column_letter(akk_idx)
-            bj_col = get_column_letter(bj_idx)
+        if not (mahakam_start_row and mahakam_end_row):
+            print("⚠️ Tidak ditemukan baris Mahakam pada blok ini.")
+            continue
 
-            akc_formula = f"=SUMPRODUCT(${akc_col}${mahakam_start_row}:${akc_col}${mahakam_end_row}{sep}{bj_col}{mahakam_start_row}:{bj_col}{mahakam_end_row})/SUM(${bj_col}${mahakam_start_row}:${bj_col}${mahakam_end_row})"
-            akk_formula = f"=SUMPRODUCT(${akk_col}${mahakam_start_row}:${akk_col}${mahakam_end_row}{sep}{bj_col}{mahakam_start_row}:{bj_col}{mahakam_end_row})/SUM(${bj_col}${mahakam_start_row}:${bj_col}${mahakam_end_row})"
+        akc_col = get_column_letter(akc_idx)
+        akk_col = get_column_letter(akk_idx)
+        ano_col = get_column_letter(ano_idx)
+        bj_col = get_column_letter(bj_idx)
+
+        # --- Formula Mahakam (semua target loadport)
+        if mahakam_start_row and mahakam_end_row:
+            target_row = last_row + 3
+            akc_formula = f"=SUMPRODUCT(${akc_col}${mahakam_start_row}:${akc_col}${mahakam_end_row}{sep}${bj_col}${mahakam_start_row}:${bj_col}${mahakam_end_row})/SUM(${bj_col}${mahakam_start_row}:${bj_col}${mahakam_end_row})"
+            akk_formula = f"=SUMPRODUCT(${akk_col}${mahakam_start_row}:${akk_col}${mahakam_end_row}{sep}${bj_col}${mahakam_start_row}:${bj_col}${mahakam_end_row})/SUM(${bj_col}${mahakam_start_row}:${bj_col}${mahakam_end_row})"
+            ano_formula = f"=AVERAGE({ano_col}{mahakam_start_row}:{ano_col}{mahakam_end_row})"
 
             sheet.cell(row=target_row, column=akc_idx).value = akc_formula
             sheet.cell(row=target_row, column=akk_idx).value = akk_formula
+            sheet.cell(row=target_row, column=ano_idx).value = ano_formula
 
             print(f"✅ Inserted AKC formula at {akc_col}{target_row}: {akc_formula}")
             print(f"✅ Inserted AKK formula at {akk_col}{target_row}: {akk_formula}")
+            print(f"✅ Inserted ANO formula at {ano_col}{target_row}: {ano_formula}")
+
+        # --- Formula MV. (subset vessel name contains "MV.")
+        mahakam_mv_start, mahakam_mv_end = None, None
+        for row in range(mahakam_start_row, mahakam_end_row + 1):
+            val = sheet.cell(row=row, column=vessel_idx).value
+            if isinstance(val, str) and val.strip().upper().startswith("MV."):
+                if mahakam_mv_start is None:
+                    mahakam_mv_start = row
+                mahakam_mv_end = row
+        print(f"🔎 mahakam_mv_start={mahakam_mv_start}, mahakam_mv_end={mahakam_mv_end}")
+
+        if mahakam_mv_start and mahakam_mv_end:
+            target_row = last_row + 6
+            formula = f"=SUMPRODUCT(${akc_col}${mahakam_mv_start}:${akc_col}${mahakam_mv_end}{sep}${bj_col}${mahakam_mv_start}:${bj_col}${mahakam_mv_end})/SUM(${bj_col}${mahakam_mv_start}:${bj_col}${mahakam_mv_end})"
+            sheet.cell(row=target_row, column=akc_idx).value = formula
+            print(f"✅ Inserted MV formula at {akc_col}{target_row}: {formula}")
+
+        # --- Cari BG. subset
+        mahakam_bg_start, mahakam_bg_end = None, None
+        for row in range(mahakam_start_row, mahakam_end_row + 1):
+            val = sheet.cell(row=row, column=vessel_idx).value
+            if isinstance(val, str) and val.strip().upper().startswith("BG."):
+                if mahakam_bg_start is None:
+                    mahakam_bg_start = row
+                mahakam_bg_end = row
+        print(f"🔎 mahakam_bg_start={mahakam_bg_start}, mahakam_bg_end={mahakam_bg_end}")
+
+        if mahakam_bg_start and mahakam_bg_end:
+            target_row = last_row + 7
+            formula = f"=SUMPRODUCT(${akc_col}${mahakam_bg_start}:${akc_col}${mahakam_bg_end}{sep}${bj_col}${mahakam_bg_start}:${bj_col}${mahakam_bg_end})/SUM(${bj_col}${mahakam_bg_start}:${bj_col}${mahakam_bg_end})"
+            sheet.cell(row=target_row, column=akc_idx).value = formula
+            print(f"✅ Inserted BG formula at {akc_col}{target_row}: {formula}")
+
         else:
             print("⚠️ Tidak ditemukan baris dengan Load Port = 'SMD Anc', 'GPK Port', 'JBG Anc', 'Jorong', 'Bunyut' pada blok ini.")
 
