@@ -70,6 +70,38 @@ class Ui_MainWindow(object):
         self.label_sub.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         self.vlayout.addWidget(self.label_sub)
 
+        # === This Month Label ===
+        self.this_month = QtWidgets.QLabel("This Month :")
+        font_sub = QtGui.QFont("Arial", 10)
+        self.this_month.setFont(font_sub)
+        self.this_month.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        self.vlayout.addWidget(self.this_month)
+
+        # === Month ComboBox ===
+        self.month_combo = QtWidgets.QComboBox()
+        self.month_combo.setFixedWidth(120)
+        self.month_combo.setFixedHeight(35)
+
+        # Tambahkan bulan January - December
+        self.month_combo.addItems([
+            "January", "February", "March", "April", "May", "June",
+            "July", "August", "September", "October", "November", "December"
+        ])
+        # Buat delegate agar teks di tengah
+        delegate = QtWidgets.QStyledItemDelegate(self.month_combo)
+        self.month_combo.setItemDelegate(delegate)
+
+        for i in range(self.month_combo.count()):
+            self.month_combo.setItemData(i, QtCore.Qt.AlignmentFlag.AlignCenter, QtCore.Qt.ItemDataRole.TextAlignmentRole)
+
+        # Set default ke bulan saat ini
+        import datetime
+        current_month = datetime.datetime.now().month
+        self.month_combo.setCurrentIndex(current_month - 1)
+
+        # Tambahkan ke layout utama
+        self.vlayout.addWidget(self.month_combo, alignment=QtCore.Qt.AlignmentFlag.AlignCenter)
+
         # === White Box (main container) ===
         self.box_widget = QtWidgets.QFrame()
         self.box_layout = QtWidgets.QVBoxLayout(self.box_widget)

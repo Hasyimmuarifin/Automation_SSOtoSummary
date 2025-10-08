@@ -104,58 +104,91 @@ formulas={
     'AOK': '=AOH{row}/2'
 }
 
-# def delete_old_plan_rows(sheet_b, sheet_loading_old, header_columns_a, column_mapping):
-#     """
-#     Hapus baris di ITM Summary (sheet_b) yang memiliki Status='Plan'
-#     dan (Company, Vessel name, End user) cocok dengan data di sheet Loading lama.
-#     Setelah penghapusan, formulas di setiap blok bulan di-reapply ulang.
-#     """
-#     plan_rows_keys = set()
-
-#     # ambil keys dari Loading lama
-#     for row in range(2, sheet_loading_old.max_row + 1):
-#         comp = sheet_loading_old.cell(row=row, column=header_columns_a['Company']).value
-#         ves  = sheet_loading_old.cell(row=row, column=header_columns_a['Vessel name']).value
-#         eus  = sheet_loading_old.cell(row=row, column=header_columns_a['End user']).value
-#         plan_rows_keys.add((comp, ves, eus))
-
-#     company_col = column_index_from_string(column_mapping['Company'])
-#     vessel_col  = column_index_from_string(column_mapping['Vessel name'])
-#     enduser_col = column_index_from_string(column_mapping['End user'])
-#     status_col  = column_index_from_string(column_mapping['Status'])
-
-#     # iterasi terbalik agar aman delete row --> Hapus baris yang match
-#     for row in range(sheet_b.max_row, 1, -1):
-#         comp = sheet_b.cell(row=row, column=company_col).value
-#         ves  = sheet_b.cell(row=row, column=vessel_col).value
-#         eus  = sheet_b.cell(row=row, column=enduser_col).value
-#         status = sheet_b.cell(row=row, column=status_col).value
-#         if status == "Plan" and (comp, ves, eus) in plan_rows_keys:
-#             sheet_b.delete_rows(row, 1)
-
-#     # --- Renumber ulang blok bulan ---
-#     renumber_month_blocks(sheet_b)
-#     # month_blocks = renumber_month_blocks(sheet_b)
-
-#     # # 📌 setelah semua delete → reapply formula hanya dalam blok bulan
-#     # reapply_formulas(sheet_b, month_blocks, formulas)
-
-def delete_plan_rows(sheet_b, column_mapping):
+def delete_or_clear_plan_rows(sheet_b, column_mapping, selected_month):
     """
-    Hapus semua baris di sheet_b yang memiliki Status = 'Plan'
-    tanpa perlu referensi sheet loading lama.
-    Setelah penghapusan, blok bulan dinomori ulang.
+    Hapus baris dengan Status == 'Plan' hanya pada blok bulan terpilih,
+    sedangkan pada bulan lain hanya clear isi value dari kolom C sampai AOT.
+    - Mendeteksi header blok bulan pada kolom B (singkatan bulan: Jan, Feb, ...).
+    - Setelah menemukan header -> turun 2 baris untuk masuk ke baris pertama blok.
+    - Periksa 100 baris (atau sampai akhir sheet), lakukan delete/clear sesuai aturan.
+    ➕ Menambahkan log dengan emoji untuk melacak proses.
     """
+
+    # index kolom
     status_col = column_index_from_string(column_mapping['Status'])
+    month_header_col = column_index_from_string('B')  # kolom B berisi header bulan
+    start_clear_col = column_index_from_string("C")
+    end_clear_col = column_index_from_string("AOT")
 
-    # Iterasi terbalik biar aman saat delete row
-    for row in range(sheet_b.max_row, 1, -1):
-        status = sheet_b.cell(row=row, column=status_col).value
-        if str(status).strip().upper() == "PLAN":   # normalisasi ke huruf besar
-            sheet_b.delete_rows(row, 1)
+    # normalisasi selected_month => singkatan (3-letter, e.g. 'Jan')
+    if isinstance(selected_month, int):
+        try:
+            selected_abbrev = datetime.date(2025, selected_month, 1).strftime('%b')
+        except Exception:
+            selected_abbrev = str(selected_month)[:3]
+    else:
+        sm = str(selected_month).strip()
+        # mencoba parsing full month name ("January") -> "Jan"
+        try:
+            selected_abbrev = datetime.datetime.strptime(sm, '%B').strftime('%b')
+        except Exception:
+            # jika sudah singkatan atau lain -> ambil 3 huruf pertama
+            selected_abbrev = sm[:3]
 
-    # --- Renumber ulang blok bulan ---
-    renumber_month_blocks(sheet_b)
+    selected_abbrev = selected_abbrev.lower()
+
+    # siapkan daftar header bulan yang ada di sheet (baris dimana kolom B berisi bulan)
+    header_rows = []
+    for r in range(1, sheet_b.max_row + 1):
+        cell_val = sheet_b.cell(row=r, column=month_header_col).value
+        if not cell_val:
+            continue
+        if isinstance(cell_val, str):
+            txt = cell_val.strip().lower()
+            # cek apakah mulai dengan 3-letter month abbreviation
+            if txt[:3] in {'jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'}:
+                header_rows.append((r, txt))  # simpan tuple (baris, teks)
+
+    if not header_rows:
+        print("⚠️ Tidak ditemukan blok bulan di kolom B.")
+        return
+
+    # proses header dari bawah ke atas supaya penghapusan row tidak merusak indeks header yang belum diproses
+    header_rows.sort(key=lambda x: x[0], reverse=True)
+
+    for header_row, header_txt in header_rows:
+        # mulai data setelah header: turun 2 baris sesuai instruksi
+        data_start = header_row + 2
+        data_end = min(sheet_b.max_row, data_start + 100 - 1)  # 100 baris ke bawah (inklusive)
+
+        # cek apakah header ini adalah bulan terpilih (bandingkan 3-letter)
+        is_selected_month = header_txt.startswith(selected_abbrev[:3].lower())
+        print(f"\n📅 Processing month block: {header_txt.title()} "
+              f"({'TARGET' if is_selected_month else 'other'})")
+
+        rows_to_delete = []
+        # iterasi di block (naik) untuk mengecek status
+        for r in range(data_start, data_end + 1):
+            status_val = sheet_b.cell(row=r, column=status_col).value
+            if status_val is None:
+                continue
+            if str(status_val).strip().lower() == "plan":
+                if is_selected_month:
+                    # tandai untuk dihapus (hapusnya nanti dibalik urutan)
+                    rows_to_delete.append(r)
+                    print(f"   🗑️ Delete row {r} (Status=Plan, {header_txt.title()})")
+                else:
+                    # Hanya clear nilai dari kolom C..AOT
+                    for c in range(start_clear_col, end_clear_col + 1):
+                        sheet_b.cell(row=r, column=c).value = None
+                    print(f"   🧹 Clear row {r} (Status=Plan, {header_txt.title()})")
+
+        # lakukan penghapusan baris (jika ada), lakukan dari bawah ke atas
+        if rows_to_delete:
+            for rr in reversed(rows_to_delete):
+                sheet_b.delete_rows(rr, 1)
+
+    print("✅ delete_or_clear_plan_rows selesai.")
 
 def month_to_abbreviation(month_number):
     """

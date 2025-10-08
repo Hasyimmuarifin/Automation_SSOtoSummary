@@ -10,15 +10,16 @@ class Worker(QThread):
     finished = pyqtSignal(str)
     error = pyqtSignal(str)
 
-    def __init__(self, input_file: str, output_file: str):
+    def __init__(self, input_file: str, output_file: str, selected_month: int):
         super().__init__()
         self.input_file = input_file
         self.output_file = output_file
+        self.selected_month = selected_month
 
     def run(self):
         try:
             # Panggil fungsi utama
-            message = main_logic.run_excel_process(self.input_file, self.output_file)
+            message = main_logic.run_excel_process(self.input_file, self.output_file, self.selected_month)
             self.finished.emit(message)
         except Exception as e:
             self.error.emit(str(e))
@@ -78,6 +79,9 @@ class MainApp(QMainWindow, Ui_MainWindow):
             QMessageBox.warning(self, "Warning", "Please select both input and output files!")
             return
 
+        # Ambil bulan dari combo box
+        self.selected_month = self.month_combo.currentIndex() + 1   # karena index 0 = January → 1
+
         # Disable tombol Start saat proses berjalan
         self.start_btn.setEnabled(False)
 
@@ -90,7 +94,7 @@ class MainApp(QMainWindow, Ui_MainWindow):
         self.progress.show()
 
         # Jalankan worker
-        self.worker = Worker(self.input_file, self.output_file)
+        self.worker = Worker(self.input_file, self.output_file, self.selected_month)
         self.worker.finished.connect(self.on_finished)
         self.worker.error.connect(self.on_error)
         self.worker.start()
