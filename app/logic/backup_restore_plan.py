@@ -66,7 +66,7 @@ def restore_plan_rows(wb, sheet_b, backup_sheet_name="Backup_Plan"):
     Pencocokan berdasarkan 4 kolom: Month, Company, Vessel, End User.
     Jika cocok, isi kembali nilai AKC–AKQ.
     - Restore numeric AKC–AKQ berdasarkan 4 kolom kunci.
-    - Restore komentar berdasarkan 4 kolom kunci + posisi kolom.
+    - Restore komentar menggunakan sistem pencocokan berbasis skor.
     Setelah restore selesai, sheet Backup_Plan dihapus.
     """
 
@@ -131,18 +131,114 @@ def restore_plan_rows(wb, sheet_b, backup_sheet_name="Backup_Plan"):
                 print(f"[RESTORE] Row {r} diperbarui dari backup (Month={month_bkp}, Company={company_bkp})")
                 break  # sudah ketemu baris, tidak perlu cari 
 
-    # restore komentar
+    # restore komentar pakai sistem skor (prioritas: End User > Vessel > Month > Company)
+    unmatched_comments = []
+
     for month_bkp, company_bkp, vessel_bkp, enduser_bkp, col, txt in comment_rows:
+        best_row = None
+        best_score = -1
+        best_match_details = None
+
+        print("\n[DEBUG] --- Mencari match untuk komentar ---")
+        print(f"Target Backup → Month={month_bkp}, Company={company_bkp}, Vessel={vessel_bkp}, EndUser={enduser_bkp}, Col={col}")
+
         for r in range(2, sheet_b.max_row + 1):
+            month_val   = sheet_b.cell(r, COL_C).value
+            company_val = sheet_b.cell(r, COL_D).value
+            vessel_val  = sheet_b.cell(r, COL_E).value
+            enduser_val = sheet_b.cell(r, COL_G).value
+
+            score = 0
+            if enduser_val == enduser_bkp:
+                score += 8
+            if vessel_val == vessel_bkp:
+                score += 4
+            if month_val == month_bkp:
+                score += 2
+            if company_val == company_bkp:
+                score += 1
+
+            # Debug perbandingan
+            print(f"  [DEBUG] Row {r}: "
+                f"(Month={month_val}, Company={company_val}, Vessel={vessel_val}, EndUser={enduser_val}) "
+                f"=> Score={score}")
+
+            if score > best_score:
+                best_score = score
+                best_row = r
+                best_match_details = (month_val, company_val, vessel_val, enduser_val)
+
+            elif score == best_score and best_score > 0:
+                # tie-breaker (prioritas EndUser > Vessel > Month > Company)
+                tie_current = (
+                    int(enduser_val == enduser_bkp),
+                    int(vessel_val == vessel_bkp),
+                    int(month_val == month_bkp),
+                    int(company_val == company_bkp)
+                )
+                tie_best = (
+                    int(best_match_details[3] == enduser_bkp),
+                    int(best_match_details[2] == vessel_bkp),
+                    int(best_match_details[0] == month_bkp),
+                    int(best_match_details[1] == company_bkp)
+                )
+
+                if tie_current > tie_best:
+                    print(f"  [DEBUG] Tie-breaker: Row {r} lebih cocok dibanding kandidat sebelumnya (Row {best_row})")
+                    best_row = r
+                    best_match_details = (month_val, company_val, vessel_val, enduser_val)
+
+        # restore kalau skornya cukup kuat
+        if best_score >= 4 and best_row:
+            sheet_b.cell(best_row, col).comment = Comment(txt, "BackupRestore")
+            print(f"[RESTORE] Comment dikembalikan ke (Row={best_row}, Col={col}) → {txt} | Score={best_score}")
+        else:
+            unmatched_comments.append({
+                "Month": month_bkp,
+                "Company": company_bkp,
+                "Vessel": vessel_bkp,
+                "EndUser": enduser_bkp,
+                "Column": col,
+                "Text": txt,
+                "BestScore": best_score
+            })
+            print(f"[RESTORE] Tidak menemukan match cukup kuat untuk comment "
+                f"(EndUser={enduser_bkp}, Vessel={vessel_bkp}, Month={month_bkp}, Company={company_bkp}) | Score={best_score}")
+
+    # fallback → buat sheet khusus untuk komentar yang tidak bisa direstore
+    if unmatched_comments:
+        # filter: buang data kosong / header palsu
+        valid_unmatched = []
+        for item in unmatched_comments:
             if (
-                sheet_b.cell(r, COL_C).value == month_bkp and
-                sheet_b.cell(r, COL_D).value == company_bkp and
-                sheet_b.cell(r, COL_E).value == vessel_bkp and
-                sheet_b.cell(r, COL_G).value == enduser_bkp
+                not any([item["Month"], item["Company"], item["Vessel"], item["EndUser"], item["Text"]])
+                or str(item["Month"]).lower() == "month"
+                or str(item["Company"]).lower() == "company"
+                or str(item["Vessel"]).lower() == "vessel"
+                or str(item["EndUser"]).lower() == "enduser"
+                or str(item["Text"]).lower() in ("text", "comment")
             ):
-                sheet_b.cell(r, col).comment = Comment(txt, "BackupRestore")
-                print(f"[RESTORE] Comment dikembalikan ke ({r},{col}) → {txt}")
-                break
+                print("[DEBUG] Skip unmatched_comment karena data kosong/header →", item)
+                continue
+            valid_unmatched.append(item)
+
+        # hanya buat sheet kalau ada data valid
+        if valid_unmatched:
+            fallback_name = "Unmatched_Comments"
+            if fallback_name in wb.sheetnames:
+                ws_fallback = wb[fallback_name]
+            else:
+                ws_fallback = wb.create_sheet(fallback_name)
+                ws_fallback.append(["Month", "Company", "Vessel", "EndUser", "Column", "Text", "BestScore", "Note"])
+
+            for item in unmatched_comments:
+                note = "No strong match found (score < 4)"
+                ws_fallback.append([
+                    item["Month"], item["Company"], item["Vessel"], item["EndUser"],
+                    item["Column"], item["Text"], item["BestScore"], note
+                ])
+
+            print(f"[RESTORE] {len(unmatched_comments)} komentar gagal dipetakan " f"→ disimpan di sheet '{fallback_name}'")
 
     # hapus sheet backup setelah selesai
     del wb[backup_sheet_name]
