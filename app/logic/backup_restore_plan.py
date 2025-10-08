@@ -1,20 +1,24 @@
 # backup_restore_plan.py
 
-import openpyxl
+from openpyxl.comments import Comment
 
 def backup_plan_rows(wb, sheet_b, backup_sheet_name="Backup_Plan"):
     """
     Backup baris dengan status 'Plan' atau 'Complete' (kolom BQ) ke sheet sementara.
     - Jika 'Plan' → backup Month, Company, Vessel, End User, serta AKC–AKQ (numeric).
+    - Tambahan: Komentar di semua cell kolom C–AOT.
     """
     # hapus sheet backup jika sudah ada
     if backup_sheet_name in wb.sheetnames:
         del wb[backup_sheet_name]
     ws_backup = wb.create_sheet(backup_sheet_name)
 
-    # header
+    # header utama (data numeric)
     headers = ['Month', 'Company', 'Vessel', 'End User'] + [f"AK{chr(c)}" for c in range(ord('C'), ord('R'))]  # AKC–AKQ
     ws_backup.append(headers)
+
+    # header komentar
+    ws_backup.append(["#COMMENT#", "Month", "Company", "Vessel", "EndUser", "Column", "Comment"])
 
     # kolom index
     COL_STATUS = 69   # BQ
@@ -24,6 +28,7 @@ def backup_plan_rows(wb, sheet_b, backup_sheet_name="Backup_Plan"):
     COL_G = 7         # End User
     COL_AKC = 965     # AKC
     COL_AKQ = 979     # AKQ
+    COL_MAX = 1086     # AOT
 
     for row in range(2, sheet_b.max_row + 1):
         status = sheet_b.cell(row=row, column=COL_STATUS).value
@@ -44,14 +49,24 @@ def backup_plan_rows(wb, sheet_b, backup_sheet_name="Backup_Plan"):
 
             # format kolom Month (kolom A pada sheet backup)
             ws_backup.cell(row=ws_backup.max_row, column=1).number_format = "mmm"
-
             print(f"[BACKUP] Row {row} → {row_data}")
+
+            # backup komentar di kolom C–AOT
+            for col in range(COL_C, COL_MAX + 1):
+                comment_obj = sheet_b.cell(row=row, column=col).comment
+                if comment_obj and comment_obj.text:
+                    ws_backup.append([
+                        "#COMMENT#", month, company, vessel, enduser, col, comment_obj.text
+                    ])
+                    print(f"[BACKUP] Comment ({row},{col}) → {comment_obj.text}")
 
 def restore_plan_rows(wb, sheet_b, backup_sheet_name="Backup_Plan"):
     """
     Restore data dari sheet Backup_Plan ke sheet ITM Summary (sheet_b).
     Pencocokan berdasarkan 4 kolom: Month, Company, Vessel, End User.
     Jika cocok, isi kembali nilai AKC–AKQ.
+    - Restore numeric AKC–AKQ berdasarkan 4 kolom kunci.
+    - Restore komentar berdasarkan 4 kolom kunci + posisi kolom.
     Setelah restore selesai, sheet Backup_Plan dihapus.
     """
 
@@ -69,8 +84,26 @@ def restore_plan_rows(wb, sheet_b, backup_sheet_name="Backup_Plan"):
     COL_AKC = 965     # AKC
     COL_AKQ = 979     # AKQ
 
+    # pisahkan data utama dan komentar
+    comment_rows = []
     # iterasi semua data di backup (mulai dari row 2, karena row 1 adalah header)
     for row in range(2, ws_backup.max_row + 1):
+        tag = ws_backup.cell(row=row, column=1).value
+
+        if tag == "#COMMENT#":
+            month_bkp = ws_backup.cell(row=row, column=2).value
+            company_bkp = ws_backup.cell(row=row, column=3).value
+            vessel_bkp = ws_backup.cell(row=row, column=4).value
+            enduser_bkp = ws_backup.cell(row=row, column=5).value
+            col = ws_backup.cell(row=row, column=6).value
+            txt = ws_backup.cell(row=row, column=7).value
+            comment_rows.append((month_bkp, company_bkp, vessel_bkp, enduser_bkp, col, txt))
+            continue
+
+        if tag is None or tag == "#COMMENTS#":
+            continue
+
+        # restore nilai numeric AKC–AKQ
         month_bkp = ws_backup.cell(row=row, column=1).value
         company_bkp = ws_backup.cell(row=row, column=2).value
         vessel_bkp = ws_backup.cell(row=row, column=3).value
@@ -83,16 +116,11 @@ def restore_plan_rows(wb, sheet_b, backup_sheet_name="Backup_Plan"):
 
         # cari baris yang cocok di sheet ITM Summary
         for r in range(2, sheet_b.max_row + 1):
-            month_val = sheet_b.cell(row=r, column=COL_C).value
-            company_val = sheet_b.cell(row=r, column=COL_D).value
-            vessel_val = sheet_b.cell(row=r, column=COL_E).value
-            enduser_val = sheet_b.cell(row=r, column=COL_G).value
-
             if (
-                month_val == month_bkp
-                and company_val == company_bkp
-                and vessel_val == vessel_bkp
-                and enduser_val == enduser_bkp
+                sheet_b.cell(r, COL_C).value == month_bkp and
+                sheet_b.cell(r, COL_D).value == company_bkp and
+                sheet_b.cell(r, COL_E).value == vessel_bkp and
+                sheet_b.cell(r, COL_G).value == enduser_bkp
             ):
                 # cocok → restore nilai numeric AKC–AKQ
                 for idx, col in enumerate(range(COL_AKC, COL_AKQ + 1)):
@@ -101,7 +129,20 @@ def restore_plan_rows(wb, sheet_b, backup_sheet_name="Backup_Plan"):
                         sheet_b.cell(row=r, column=col).value = val
 
                 print(f"[RESTORE] Row {r} diperbarui dari backup (Month={month_bkp}, Company={company_bkp})")
-                break  # sudah ketemu baris, tidak perlu cari lagi
+                break  # sudah ketemu baris, tidak perlu cari 
+
+    # restore komentar
+    for month_bkp, company_bkp, vessel_bkp, enduser_bkp, col, txt in comment_rows:
+        for r in range(2, sheet_b.max_row + 1):
+            if (
+                sheet_b.cell(r, COL_C).value == month_bkp and
+                sheet_b.cell(r, COL_D).value == company_bkp and
+                sheet_b.cell(r, COL_E).value == vessel_bkp and
+                sheet_b.cell(r, COL_G).value == enduser_bkp
+            ):
+                sheet_b.cell(r, col).comment = Comment(txt, "BackupRestore")
+                print(f"[RESTORE] Comment dikembalikan ke ({r},{col}) → {txt}")
+                break
 
     # hapus sheet backup setelah selesai
     del wb[backup_sheet_name]
