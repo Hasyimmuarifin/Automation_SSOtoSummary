@@ -1,6 +1,6 @@
 # main_logic.py
 from config.column_mapping import column_mapping
-from .helpers import month_to_abbreviation, get_header_columns_a, normalize_month_block_rows, delete_or_clear_plan_rows
+from .helpers import month_to_abbreviation, get_header_columns_a, normalize_month_block_rows, delete_or_clear_plan_rows, insert_boct_formulas, insert_mahakam_formulas
 from .data_handler import process_data_per_month
 from .move_sheet import copy_sheet_full   # ✅ Utility to copy entire sheet
 from .renumber_blocks import renumber_month_blocks
@@ -152,7 +152,13 @@ def run_excel_process(input_file: str, output_file: str, selected_month: int) ->
             month_abbreviation, header_columns_a, column_mapping
         )
 
-        renumber_month_blocks(sheet_b)
+        # ✅ Tambahkan step insert formula BoCT
+        print("[INFO] Menambahkan formula BoCT (AKC & AKK) untuk tiap blok bulan...")
+        month_blocks = renumber_month_blocks(sheet_b)  # refresh blok setelah normalisasi
+        insert_boct_formulas(sheet_b, month_blocks, reference_col=2, loadport_col="H")
+        print("[INFO] Menambahkan formula Mahakam (AKC & AKK) untuk tiap blok bulan...")
+        insert_mahakam_formulas(sheet_b, month_blocks, reference_col=2, loadport_col="H")
+        # renumber_month_blocks(sheet_b)
         print(f"[OK] Data bulan {month_value} ({month_abbreviation}) selesai diproses.")
 
     print("[INFO] Restore plan rows setelah proses semua bulan...")
