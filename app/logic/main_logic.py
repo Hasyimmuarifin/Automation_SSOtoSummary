@@ -8,6 +8,7 @@ from .auto_separator import get_formula_separator
 from .backup_restore_plan import backup_plan_rows, restore_plan_rows, clear_aon_block
 from .backup_restore_quality import backup_quality_rows, restore_quality_rows, clear_plan_fill
 from .fill_empty_with_zero import fill_empty_range_with_zero
+from .apply_color_font import apply_status_font
 import openpyxl
 
 sep = get_formula_separator()
@@ -169,6 +170,7 @@ def run_excel_process(input_file: str, output_file: str, selected_month: int) ->
     restore_plan_rows(wb, sheet_b)
     restore_quality_rows(wb, sheet_b)
     clear_plan_fill(wb, sheet_b)
+    apply_status_font(sheet_b)
 
     # Step 5: Save the result back to the input file (final output)
     print(f"[INFO] Menyimpan hasil akhir ke file {input_file}...")
