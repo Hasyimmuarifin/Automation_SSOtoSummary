@@ -62,7 +62,10 @@ def backup_plan_rows(wb, sheet_b, backup_sheet_name="Backup_Plan"):
     ws_backup = wb.create_sheet(backup_sheet_name)
 
     # header utama (data numeric)
-    headers = ['Month', 'Company', 'Vessel', 'End User'] + [f"AK{chr(c)}" for c in range(ord('C'), ord('R'))]  # AKC–AKQ
+    headers = (
+        ['Month', 'Company', 'Vessel', 'End User'] + [f"AK{chr(c)}" for c in range(ord('C'), ord('R'))]  # AKC–AKQ 
+        + ["AON", "AOP", "AOR", "AOT"]  # kolom tambahan
+    )
     ws_backup.append(headers)
 
     # header komentar
@@ -76,6 +79,10 @@ def backup_plan_rows(wb, sheet_b, backup_sheet_name="Backup_Plan"):
     COL_G = 7         # End User
     COL_AKC = 965     # AKC
     COL_AKQ = 979     # AKQ
+    COL_AON = 1041
+    COL_AOP = 1043
+    COL_AOR = 1045
+    COL_AOT = 1047
     COL_MAX = 1086     # AOT
 
     for row in range(2, sheet_b.max_row + 1):
@@ -89,6 +96,11 @@ def backup_plan_rows(wb, sheet_b, backup_sheet_name="Backup_Plan"):
             # ambil nilai numeric AKC–AKQ
             values = []
             for col in range(COL_AKC, COL_AKQ + 1):
+                cell_val = sheet_b.cell(row=row, column=col).value
+                values.append(cell_val if isinstance(cell_val, (int, float)) else None)
+
+            # ambil tambahan AON, AOP, AOR, AOT
+            for col in (COL_AON, COL_AOP, COL_AOR, COL_AOT):
                 cell_val = sheet_b.cell(row=row, column=col).value
                 values.append(cell_val if isinstance(cell_val, (int, float)) else None)
 
@@ -131,6 +143,10 @@ def restore_plan_rows(wb, sheet_b, backup_sheet_name="Backup_Plan"):
     COL_G = 7         # End User
     COL_AKC = 965     # AKC
     COL_AKQ = 979     # AKQ
+    COL_AON = 1041
+    COL_AOP = 1043
+    COL_AOR = 1045
+    COL_AOT = 1047
 
     # pisahkan data utama dan komentar
     comment_rows = []
@@ -173,6 +189,13 @@ def restore_plan_rows(wb, sheet_b, backup_sheet_name="Backup_Plan"):
                 # cocok → restore nilai numeric AKC–AKQ
                 for idx, col in enumerate(range(COL_AKC, COL_AKQ + 1)):
                     val = values_bkp[idx] if idx < len(values_bkp) else None
+                    if val is not None:
+                        sheet_b.cell(row=r, column=col).value = val
+
+                # restore tambahan AON–AOT (4 kolom setelah AKQ)
+                extra_cols = [COL_AON, COL_AOP, COL_AOR, COL_AOT]
+                for i, col in enumerate(extra_cols, start=(COL_AKQ - COL_AKC + 1)):
+                    val = values_bkp[i] if i < len(values_bkp) else None
                     if val is not None:
                         sheet_b.cell(row=r, column=col).value = val
 

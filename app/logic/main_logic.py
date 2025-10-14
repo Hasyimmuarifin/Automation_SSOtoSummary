@@ -6,6 +6,7 @@ from .move_sheet import copy_sheet_full   # ✅ Utility to copy entire sheet
 from .renumber_blocks import renumber_month_blocks
 from .auto_separator import get_formula_separator
 from .backup_restore_plan import backup_plan_rows, restore_plan_rows
+from .backup_restore_quality import backup_quality_rows, restore_quality_rows
 from .fill_empty_with_zero import fill_empty_range_with_zero
 import openpyxl
 
@@ -93,6 +94,7 @@ def run_excel_process(input_file: str, output_file: str, selected_month: int) ->
     if sheet_loading_old:
         print("[INFO] Sheet 'Loading' lama ditemukan, lakukan backup & hapus plan rows...")
         backup_plan_rows(wb, sheet_b)
+        backup_quality_rows(wb, sheet_b)
         delete_or_clear_plan_rows(sheet_b, column_mapping, selected_month)
 
         # --- Step: Normalisasi blok bulan setelah delete plan rows ---
@@ -107,6 +109,7 @@ def run_excel_process(input_file: str, output_file: str, selected_month: int) ->
         # Jika tidak ada sheet loading lama, tetap lakukan backup
         print("[INFO] Sheet 'Loading' lama tidak ada. Tetap lakukan backup & hapus plan rows...")
         backup_plan_rows(wb, sheet_b)
+        backup_quality_rows(wb, sheet_b)
         delete_or_clear_plan_rows(sheet_b, column_mapping, selected_month)
 
         # --- Step: Normalisasi blok bulan setelah delete plan rows ---
@@ -163,6 +166,7 @@ def run_excel_process(input_file: str, output_file: str, selected_month: int) ->
 
     print("[INFO] Restore plan rows setelah proses semua bulan...")
     restore_plan_rows(wb, sheet_b)
+    restore_quality_rows(wb, sheet_b)
 
     # Step 5: Save the result back to the input file (final output)
     print(f"[INFO] Menyimpan hasil akhir ke file {input_file}...")
