@@ -227,13 +227,25 @@ def insert_mahakam_formulas(sheet, month_blocks, reference_col=2, loadport_col="
         print(f"🔎 mahakam_bg_start={mahakam_bg_start}, mahakam_bg_end={mahakam_bg_end}")
 
         if mahakam_bg_start and mahakam_bg_end:
+            # Jika ditemukan subset BG (SMD Anc, GPK Port, dll)
             target_row = last_row + 7
             formula = f"=SUMPRODUCT(${akc_col}${mahakam_bg_start}:${akc_col}${mahakam_bg_end}{sep}${bj_col}${mahakam_bg_start}:${bj_col}${mahakam_bg_end})/SUM(${bj_col}${mahakam_bg_start}:${bj_col}${mahakam_bg_end})"
             sheet.cell(row=target_row, column=akc_idx).value = formula
             print(f"✅ Inserted BG formula at {akc_col}{target_row}: {formula}")
 
         else:
-            print("⚠️ Tidak ditemukan baris dengan Load Port = 'SMD Anc', 'GPK Port', 'JBG Anc', 'Jorong', 'Bunyut' pada blok ini.")
+            # Default → isi 0 jika tidak ada subset BG
+            target_row = last_row + 7
+            sheet.cell(row=target_row, column=akc_idx).value = 0
+            print(f"⚠️ Tidak ada subset BG, set {akc_col}{target_row} = 0")
+            # # Default fallback pakai range mahakam langsung
+            # if mahakam_start_row and mahakam_end_row:
+            #     target_row = last_row + 7
+            #     formula = f"=SUMPRODUCT(${akc_col}${mahakam_start_row}:${akc_col}${mahakam_end_row}{sep}${bj_col}${mahakam_start_row}:${bj_col}${mahakam_end_row})/SUM(${bj_col}${mahakam_start_row}:${bj_col}${mahakam_end_row})"
+            #     sheet.cell(row=target_row, column=akc_idx).value = formula
+            #     print(f"⚠️ Tidak ada subset BG, pakai default Mahakam range → {akc_col}{target_row}: {formula}")
+            # else:
+            #     print("❌ Tidak ada baris Mahakam sama sekali di blok ini.")
 
 # 📌 mapping formula kolom → pattern (bisa diperluas sesuai kebutuhan)
 formulas={

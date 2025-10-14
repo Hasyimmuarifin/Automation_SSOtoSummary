@@ -5,8 +5,8 @@ from .data_handler import process_data_per_month
 from .move_sheet import copy_sheet_full   # ✅ Utility to copy entire sheet
 from .renumber_blocks import renumber_month_blocks
 from .auto_separator import get_formula_separator
-from .backup_restore_plan import backup_plan_rows, restore_plan_rows
-from .backup_restore_quality import backup_quality_rows, restore_quality_rows
+from .backup_restore_plan import backup_plan_rows, restore_plan_rows, clear_aon_block
+from .backup_restore_quality import backup_quality_rows, restore_quality_rows, clear_plan_fill
 from .fill_empty_with_zero import fill_empty_range_with_zero
 import openpyxl
 
@@ -165,8 +165,10 @@ def run_excel_process(input_file: str, output_file: str, selected_month: int) ->
         print(f"[OK] Data bulan {month_value} ({month_abbreviation}) selesai diproses.")
 
     print("[INFO] Restore plan rows setelah proses semua bulan...")
+    clear_aon_block(sheet_b)
     restore_plan_rows(wb, sheet_b)
     restore_quality_rows(wb, sheet_b)
+    clear_plan_fill(wb, sheet_b)
 
     # Step 5: Save the result back to the input file (final output)
     print(f"[INFO] Menyimpan hasil akhir ke file {input_file}...")
