@@ -10,16 +10,17 @@ class Worker(QThread):
     finished = pyqtSignal(str)
     error = pyqtSignal(str)
 
-    def __init__(self, input_file: str, output_file: str, selected_month: int):
+    def __init__(self, input_file: str, output_file: str, month_start: int, month_end: int | None):
         super().__init__()
         self.input_file = input_file
         self.output_file = output_file
-        self.selected_month = selected_month
+        self.month_start = month_start
+        self.month_end = month_end
 
     def run(self):
         try:
             # Panggil fungsi utama
-            message = main_logic.run_excel_process(self.input_file, self.output_file, self.selected_month)
+            message = main_logic.run_excel_process(self.input_file, self.output_file, self.month_start, self.month_end)
             self.finished.emit(message)
         except Exception as e:
             self.error.emit(str(e))
@@ -47,6 +48,18 @@ class MainApp(QMainWindow, Ui_MainWindow):
         self.input_btn.clicked.connect(self.select_input_file)
         self.output_btn.clicked.connect(self.select_output_file)
         self.start_btn.clicked.connect(self.start_process)
+
+        # Jika kamu punya checkbox untuk enable month_end
+        # misalnya bernama `self.checkBox_enableNextMonth`
+        if hasattr(self, "checkBox_enableNextMonth"):
+            self.checkBox_enableNextMonth.stateChanged.connect(self.toggle_month2)
+
+            # default: nonaktifkan combo kedua
+            self.month_combo2.setEnabled(False)
+
+    def toggle_month2(self, state):
+        """Aktifkan/Nonaktifkan ComboBox bulan kedua"""
+        self.month_combo2.setEnabled(bool(state))
 
     def select_input_file(self):
         file_path, _ = QFileDialog.getOpenFileName(
@@ -80,7 +93,16 @@ class MainApp(QMainWindow, Ui_MainWindow):
             return
 
         # Ambil bulan dari combo box
-        self.selected_month = self.month_combo.currentIndex() + 1   # karena index 0 = January → 1
+        # self.selected_month = self.month_combo.currentIndex() + 1   # karena index 0 = January → 1
+        month_start = self.month_combo.currentIndex() + 1
+
+        # Cek apakah fitur month_end diaktifkan
+        month_end = None
+        if hasattr(self, "checkBox_enableNextMonth") and self.checkBox_enableNextMonth.isChecked():
+            month_end = self.month_combo2.currentIndex() + 1
+            if month_end < month_start:
+                QMessageBox.warning(self, "Warning", "End month cannot be before start month!")
+                return
 
         # Disable tombol Start saat proses berjalan
         self.start_btn.setEnabled(False)
@@ -94,7 +116,7 @@ class MainApp(QMainWindow, Ui_MainWindow):
         self.progress.show()
 
         # Jalankan worker
-        self.worker = Worker(self.input_file, self.output_file, self.selected_month)
+        self.worker = Worker(self.input_file, self.output_file, month_start, month_end)
         self.worker.finished.connect(self.on_finished)
         self.worker.error.connect(self.on_error)
         self.worker.start()

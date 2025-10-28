@@ -36,7 +36,7 @@ formulas={
     'AOK': '=AOH{row}/2'
 }
 
-def run_excel_process(input_file: str, output_file: str, selected_month: int) -> str:
+def run_excel_process(input_file: str, output_file: str, month_start: int, month_end: int | None) -> str:
     """
     Main function to process the Excel file.
 
@@ -48,6 +48,8 @@ def run_excel_process(input_file: str, output_file: str, selected_month: int) ->
        - The same month is not processed more than once.
     4. Process the data for each month via `process_data_per_month`.
     5. Save the final result to the Excel file.
+    6. Jika month_end diset (tidak None), maka proses dilakukan dari month_start hingga month_end.
+    7. Jika None, hanya memproses month_start saja.
 
     Args:
         input_file (str): Path to the source Excel file (input).
@@ -96,7 +98,7 @@ def run_excel_process(input_file: str, output_file: str, selected_month: int) ->
         print("[INFO] Sheet 'Loading' lama ditemukan, lakukan backup & hapus plan rows...")
         backup_plan_rows(wb, sheet_b)
         backup_quality_rows(wb, sheet_b)
-        delete_or_clear_plan_rows(sheet_b, column_mapping, selected_month)
+        delete_or_clear_plan_rows(sheet_b, column_mapping, month_start, month_end)
 
         # --- Step: Normalisasi blok bulan setelah delete plan rows ---
         print("[INFO] Normalisasi blok bulan setelah delete plan rows...")
@@ -111,7 +113,7 @@ def run_excel_process(input_file: str, output_file: str, selected_month: int) ->
         print("[INFO] Sheet 'Loading' lama tidak ada. Tetap lakukan backup & hapus plan rows...")
         backup_plan_rows(wb, sheet_b)
         backup_quality_rows(wb, sheet_b)
-        delete_or_clear_plan_rows(sheet_b, column_mapping, selected_month)
+        delete_or_clear_plan_rows(sheet_b, column_mapping, month_start, month_end)
 
         # --- Step: Normalisasi blok bulan setelah delete plan rows ---
         print("[INFO] Normalisasi blok bulan setelah delete plan rows...")
