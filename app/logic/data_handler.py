@@ -359,7 +359,7 @@ def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, he
         berdasarkan month_val (Jan, Feb, dst).
         """
         month_row_map = {
-            "Jan": 6, "Feb": 57, "Mar": 108, "Apr": 159,
+            "Jan": 618, "Feb": 57, "Mar": 108, "Apr": 159,
             "May": 209, "Jun": 261, "Jul": 312, "Aug": 363,
             "Sep": 414, "Oct": 465, "Nov": 516, "Dec": 567,
         }
@@ -373,7 +373,7 @@ def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, he
         else:
             month_val_str = "Jul"
 
-        base_row = month_row_map.get(month_val_str, 363)  # default ke Jul bila tidak dikenali
+        base_row = month_row_map.get(month_val_str, 312)  # default ke Jul bila tidak dikenali
 
         return (
             f"=IFERROR("
