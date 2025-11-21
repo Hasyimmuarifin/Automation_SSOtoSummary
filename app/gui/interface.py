@@ -62,7 +62,7 @@ class Ui_MainWindow(object):
         
         # Main layout without scroll area
         self.vlayout = QtWidgets.QVBoxLayout(self.centralwidget)
-        self.vlayout.setContentsMargins(40, 25, 40, 25)
+        self.vlayout.setContentsMargins(120, 25, 120, 25)
         self.vlayout.setSpacing(15)
 
         # === Header Container ===
@@ -112,19 +112,49 @@ class Ui_MainWindow(object):
 
         self.vlayout.addWidget(self.header_container)
 
-        # === Month Selection Card ===
+        # # === Month Selection Card ===
+        # self.month_card = QtWidgets.QFrame()
+        # self.month_card.setObjectName("month_card")
+        # self.month_card_layout = QtWidgets.QVBoxLayout(self.month_card)
+        # self.month_card_layout.setContentsMargins(100, 15, 100, 15)
+        # self.month_card_layout.setSpacing(12)
+
+        # === Month Selection Wrapper (Blue Background Card) ===
+        self.month_card_wrapper = QtWidgets.QFrame()
+        self.month_card_wrapper.setObjectName("month_card_wrapper")
+        self.month_card_wrapper_layout = QtWidgets.QVBoxLayout(self.month_card_wrapper)
+        self.month_card_wrapper_layout.setContentsMargins(0, 0, 0, 0)
+        self.month_card_wrapper_layout.setSpacing(0)
+
+        # Background biru cerah di luar card putih
+        self.month_card_wrapper.setStyleSheet("""
+            QFrame#month_card_wrapper {
+                background-color: #e3f2fd; /* Light Blue */
+                border-radius: 18px;
+                border: 1px solid #bbdefb;
+            }
+        """)
+
+        # # Card shadow effect
+        # card_shadow = QtWidgets.QGraphicsDropShadowEffect()
+        # card_shadow.setBlurRadius(20)
+        # card_shadow.setOffset(0, 4)
+        # card_shadow.setColor(QtGui.QColor(0, 0, 0, 60))
+        # self.month_card.setGraphicsEffect(card_shadow)
+
+        # Tambahkan efek bayangan halus
+        blue_shadow = QtWidgets.QGraphicsDropShadowEffect()
+        blue_shadow.setBlurRadius(25)
+        blue_shadow.setOffset(0, 6)
+        blue_shadow.setColor(QtGui.QColor(0, 0, 0, 50))
+        self.month_card_wrapper.setGraphicsEffect(blue_shadow)
+
+        # === Month Selection Inner Card (Putih di dalam biru) ===
         self.month_card = QtWidgets.QFrame()
         self.month_card.setObjectName("month_card")
         self.month_card_layout = QtWidgets.QVBoxLayout(self.month_card)
-        self.month_card_layout.setContentsMargins(25, 15, 25, 15)
-        self.month_card_layout.setSpacing(12)
-
-        # Card shadow effect
-        card_shadow = QtWidgets.QGraphicsDropShadowEffect()
-        card_shadow.setBlurRadius(20)
-        card_shadow.setOffset(0, 4)
-        card_shadow.setColor(QtGui.QColor(0, 0, 0, 60))
-        self.month_card.setGraphicsEffect(card_shadow)
+        self.month_card_layout.setContentsMargins(60, 20, 60, 20)
+        self.month_card_layout.setSpacing(15)
 
         # Month data
         months: List[str] = [
@@ -140,6 +170,7 @@ class Ui_MainWindow(object):
 
         self.this_month_label = QtWidgets.QLabel("📅 This Month")
         self.this_month_label.setFont(QtGui.QFont("Segoe UI", 10, QtGui.QFont.Weight.Medium))
+        self.this_month_label.setStyleSheet("color: #0d47a1; font-weight: 750;")  # biru tua
         this_month_layout.addWidget(self.this_month_label)
         this_month_layout.addStretch()
 
@@ -161,8 +192,9 @@ class Ui_MainWindow(object):
         # Separator line
         separator = QtWidgets.QFrame()
         separator.setFrameShape(QtWidgets.QFrame.Shape.HLine)
-        separator.setObjectName("separator")
+        separator.setStyleSheet("color: #bbdefb; background: #bbdefb; max-height: 1px; border: none;")
         self.month_card_layout.addWidget(separator)
+        separator.setObjectName("separator")
 
         # === Next Month Section ===
         next_month_container = QtWidgets.QWidget()
@@ -172,13 +204,14 @@ class Ui_MainWindow(object):
 
         self.next_month_label = QtWidgets.QLabel("📅 Next Month")
         self.next_month_label.setFont(QtGui.QFont("Segoe UI", 10, QtGui.QFont.Weight.Medium))
+        self.next_month_label.setStyleSheet("color: #0d47a1; font-weight: 750;")
         next_month_layout.addWidget(self.next_month_label)
         next_month_layout.addStretch()
 
         self.checkBox_enableNextMonth = QtWidgets.QCheckBox("Enable")
         self.checkBox_enableNextMonth.setFont(QtGui.QFont("Segoe UI", 9))
-        self.checkBox_enableNextMonth.setObjectName("checkBox_enableNextMonth")
         next_month_layout.addWidget(self.checkBox_enableNextMonth)
+        self.checkBox_enableNextMonth.setObjectName("checkBox_enableNextMonth")
 
         self.month_combo2 = QtWidgets.QComboBox()
         self.month_combo2.setMinimumWidth(140)
@@ -197,7 +230,12 @@ class Ui_MainWindow(object):
         next_month_layout.addWidget(self.month_combo2)
         self.month_card_layout.addWidget(next_month_container)
 
-        self.vlayout.addWidget(self.month_card)
+        # Tambahkan inner card (putih) ke wrapper biru
+        self.month_card_wrapper_layout.addWidget(self.month_card)
+
+        # Tambahkan ke layout utama
+        self.vlayout.addWidget(self.month_card_wrapper)
+        # self.vlayout.addWidget(self.month_card)
 
         # === File Selection Card ===
         self.file_card = QtWidgets.QFrame()
@@ -229,7 +267,7 @@ class Ui_MainWindow(object):
         self.input_line.setObjectName("input_line")
         self.input_layout.addWidget(self.input_line, stretch=1)
 
-        self.input_btn = QtWidgets.QPushButton("Browse")
+        self.input_btn = QtWidgets.QPushButton("Select Input")
         self.input_btn.setObjectName("btnInput")
         self.input_btn.setFixedSize(110, 38)
         self.input_btn.setCursor(QtGui.QCursor(QtCore.Qt.CursorShape.PointingHandCursor))
@@ -253,7 +291,7 @@ class Ui_MainWindow(object):
         self.output_line.setObjectName("output_line")
         self.output_layout.addWidget(self.output_line, stretch=1)
 
-        self.output_btn = QtWidgets.QPushButton("Browse")
+        self.output_btn = QtWidgets.QPushButton("Select Output")
         self.output_btn.setObjectName("btnOutput")
         self.output_btn.setFixedSize(110, 38)
         self.output_btn.setCursor(QtGui.QCursor(QtCore.Qt.CursorShape.PointingHandCursor))
