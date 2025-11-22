@@ -1,18 +1,19 @@
 # main_logic.py
 from config.column_mapping import column_mapping
-from .helpers import month_to_abbreviation, get_header_columns_a, normalize_month_block_rows, delete_or_clear_plan_rows, insert_boct_formulas, insert_mahakam_formulas
-from .data_handler import process_data_per_month
-from .move_sheet import copy_sheet_full   # ✅ Utility to copy entire sheet
-from .renumber_blocks import renumber_month_blocks
 from .auto_separator import get_formula_separator
+from .move_sheet import copy_sheet_full
+from .fill_empty_with_zero import fill_empty_range_with_zero
 from .backup_restore_plan import backup_plan_rows, restore_plan_rows, clear_aon_block
 from. backup_restore_quality import backup_quality_rows, restore_quality_rows, clear_plan_fill
-from .fill_empty_with_zero import fill_empty_range_with_zero
+from .helpers import month_to_abbreviation, get_header_columns_a, normalize_month_block_rows, delete_or_clear_plan_rows, insert_boct_formulas, insert_mahakam_formulas
+from .renumber_blocks import renumber_month_blocks
+from .data_handler import process_data_per_month
 from .apply_color_font import apply_status_font
+
 import openpyxl
 
 sep = get_formula_separator()
-# 📌 mapping formula kolom → pattern (bisa diperluas sesuai kebutuhan)
+# 📌 Column mapping formula → pattern (can be expanded as needed)
 formulas={
     # 'B': f"=ROW()-ROW($B${sort_start})+1", # nomor urut otomatis
     'BJ': '=IFERROR(SUM(N{row}:BI{row}),"NULL")',
@@ -41,99 +42,103 @@ def run_excel_process(input_file: str, output_file: str, month_start: int, month
     Main function to process the Excel file.
 
     Processing steps:
-    1. Copy the "Loading" sheet from the input file to the output file.
+    1. Copy the "Loading" sheet from the output SSO file to the input file (Summary).
     2. Read the header and column mapping from the "Loading" sheet.
     3. Iterate over each row of data by month, ensuring:
        - The month value is valid (integer).
        - The same month is not processed more than once.
     4. Process the data for each month via `process_data_per_month`.
     5. Save the final result to the Excel file.
-    6. Jika month_end diset (tidak None), maka proses dilakukan dari month_start hingga month_end.
-    7. Jika None, hanya memproses month_start saja.
 
     Args:
-        input_file (str): Path to the source Excel file (input).
-        output_file (str): Path to the destination Excel file (output).
+        input_file (str): Path to the source Excel file (summary).
+        output_file (str): Path to the destination Excel file (SSO output).
+        mohth_start (int): Starting month for processing.
+        month_end (int | None): Ending month for processing (optional).
 
     Returns:
         str: Success message after the process is completed.
     """
 
-    # Step 1: Copy sheet "Loading" baru ke source, namanya "Loading2"
+    # Step 1: Copy the new “Loading” sheet to the source, name it “Loading2”
     copy_sheet_full(input_file, output_file, sheet_name="Loading", new_name="Loading2")
 
-    # Step 1.5: Buka workbook output_file untuk isi cell kosong → 0
-    print(f"[INFO] Membuka workbook {input_file} untuk mengisi cell kosong dengan 0...")
+    # Step 2: Open the input_file (summary) workbook in the ‘Loading’ sheet to fill in the empty cells in the blending column → 0
+    print(f"🟡 Open Workbook {input_file} to fill empty cell in sheet 'Loading' with 0")
     wb_temp = openpyxl.load_workbook(input_file)
     for target_sheet in ["Loading", "Loading2"]:
         if target_sheet in wb_temp.sheetnames:
-            print(f"[OK] Sheet '{target_sheet}' ditemukan. Mengisi cell kosong di range O:AW mulai dari row 2...")
+            print(f"🟢 Sheet '{target_sheet}' found. Filling empty cells in column range O:AW start from row 2...")
             fill_empty_range_with_zero(wb_temp[target_sheet], check_col="A", start_col="O", end_col="AW", start_row=2)
         else:
-            print(f"[WARNING] Sheet '{target_sheet}' tidak ditemukan, dilewati.")
+            print(f"⚠️ Sheet '{target_sheet}' not found, skipped.")
 
-    print(f"[INFO] Menyimpan perubahan ke {input_file}...")
+    print(f"💾 Save changes to {input_file}...")
     wb_temp.save(input_file)
     wb_temp.close()
 
-    # Step 2: Open the workbook for processing
-    print(f"[INFO] Membuka kembali workbook {input_file} untuk diproses...")
+    # Step 3: Open the workbook for processing
+    print(f"🟡 Reopening Workbook {input_file} for processing...")
     wb = openpyxl.load_workbook(input_file)
 
-    print("[INFO] Membuka sheet 'ITM Summary' sebagai sheet tujuan hasil proses...")
-    sheet_b = wb['ITM Summary']     # Destination sheet (processed results)
+    print("🟡 Open the 'ITM Summary' sheet as the destination sheet for the process results...")
+    sheet_b = wb['ITM Summary']
 
-    # ambil sheet lama (Loading) jika ada
+    # Step 4: Take the old sheet (Loading) if available
     if 'Loading' in wb.sheetnames:
         sheet_loading_old = wb['Loading']
-        print("[OK] Sheet 'Loading' lama ditemukan.")
+        print("🟢 Old sheet 'Loading' found.")
     else:
         sheet_loading_old = None
-        print("[INFO] Sheet 'Loading' lama tidak ditemukan.")
+        print("🟡 Old sheet 'Loading' not found.")
 
     sheet_loading_new = wb['Loading2']
-    print("[OK] Sheet 'Loading2' ditemukan dan siap digunakan.")
+    print("🟢 Sheet 'Loading2' found & ready to use.")
 
     if sheet_loading_old:
-        print("[INFO] Sheet 'Loading' lama ditemukan, lakukan backup & hapus plan rows...")
+        print("🟡 Old sheet 'Loading' found, doing backup plan rows...")
         backup_plan_rows(wb, sheet_b)
+        print("🟡 Doing backup Quality, SOS Month, Remark of Penalty's Cause, Remark Demurrage's Cause, and Remark column in status 'complete/loading/in progress' rows...")
         backup_quality_rows(wb, sheet_b)
+        print("🟡 Doing delete or clean plan rows...")
         delete_or_clear_plan_rows(sheet_b, column_mapping, month_start, month_end)
 
-        # --- Step: Normalisasi blok bulan setelah delete plan rows ---
-        print("[INFO] Normalisasi blok bulan setelah delete plan rows...")
+        # --- Step: Normalization month block to 100 ---
+        print("🟡 Normalization of the month block to 100 after deleting plan rows...")
         month_blocks = renumber_month_blocks(sheet_b)
         normalize_month_block_rows(sheet_b, month_blocks, reference_col=2, renumber_func=renumber_month_blocks)
 
         # hapus sheet lama
-        print("[INFO] Menghapus sheet 'Loading' lama...")
+        print("🗑️ Delete the old ‘Loading’ sheet...")
         wb.remove(sheet_loading_old)
     else:
-        # Jika tidak ada sheet loading lama, tetap lakukan backup
-        print("[INFO] Sheet 'Loading' lama tidak ada. Tetap lakukan backup & hapus plan rows...")
+        # If there is no old sheet 'loading', still perform a backup
+        print("🟡 The old ‘Loading’ sheet is missing. Continue to back up plan rows....")
         backup_plan_rows(wb, sheet_b)
+        print("🟡 Doing backup Quality, SOS Month, Remark of Penalty's Cause, Remark Demurrage's Cause, and Remark column in status 'complete/loading/in progress' rows...")
         backup_quality_rows(wb, sheet_b)
+        print("🟡 Doing delete or clean plan rows...")
         delete_or_clear_plan_rows(sheet_b, column_mapping, month_start, month_end)
 
-        # --- Step: Normalisasi blok bulan setelah delete plan rows ---
-        print("[INFO] Normalisasi blok bulan setelah delete plan rows...")
+        # --- Step: Normalization month block to 100 ---
+        print("🟡 Normalization of the month block to 100 after deleting plan rows...")
         month_blocks = renumber_month_blocks(sheet_b)
         normalize_month_block_rows(sheet_b, month_blocks, reference_col=2, renumber_func=renumber_month_blocks)
 
     # rename Loading2 → Loading
-    print("[INFO] Rename sheet 'Loading2' menjadi 'Loading'...")
+    print("✒️ Rename sheet 'Loading2' to 'Loading'...")
     sheet_loading_new.title = "Loading"
     sheet_a = wb['Loading']
 
     # Get column positions based on defined mapping
-    print("[INFO] Membaca header kolom dari sheet 'Loading'...")
+    print("🟡 Reading column headers from the ‘Loading’ sheet...")
     header_columns_a = get_header_columns_a(sheet_a, column_mapping)
 
     # A set to track already processed months (to avoid duplicates)
     processed_months = set()
 
-    # Step 3: Iterate through each row in the source sheet
-    print("[INFO] Mulai iterasi setiap row pada sheet 'Loading'...")
+    # Step 5: Iterate through each row in the source sheet
+    print("🟡 Mulai iterasi setiap row pada sheet 'Loading'...")
     for row in range(2, sheet_a.max_row + 1):  # Start from row 2 (skip header)
         month_value = sheet_a.cell(row=row, column=header_columns_a['Month']).value
 
@@ -142,7 +147,7 @@ def run_excel_process(input_file: str, output_file: str, month_start: int, month
             print(f"[WARNING] Row {row}: Nilai bulan tidak valid ({month_value}), dilewati.")
             continue
         if month_value in processed_months:
-            print(f"[INFO] Row {row}: Bulan {month_value} sudah diproses, dilewati.")
+            print(f"🟡 Row {row}: Bulan {month_value} sudah diproses, dilewati.")
             continue
 
         # Mark this month as processed
@@ -150,24 +155,25 @@ def run_excel_process(input_file: str, output_file: str, month_start: int, month
 
         # Convert numeric month to abbreviation (e.g., 1 -> Jan)
         month_abbreviation = month_to_abbreviation(month_value)
-        print(f"[INFO] Row {row}: Memproses data bulan {month_value} ({month_abbreviation})...")
+        print(f"🟡 Row {row}: Memproses data bulan {month_value} ({month_abbreviation})...")
 
-        # Step 4: Process data for this month
+        # Step: Process data for this month
         process_data_per_month(
             sheet_a, sheet_b, month_value,
             month_abbreviation, header_columns_a, column_mapping
         )
 
-        # ✅ Tambahkan step insert formula BoCT
-        print("[INFO] Menambahkan formula BoCT (AKC & AKK) untuk tiap blok bulan...")
-        month_blocks = renumber_month_blocks(sheet_b)  # refresh blok setelah normalisasi
+        # After the monthly process, perform renumbering to refresh month_block and add formulas.
+        print("🟢 Refresh Month_Block after all Process & Normalization...")
+        month_blocks = renumber_month_blocks(sheet_b)
+        print("✒️ Adding the BoCT formula (AKC & AKK) for each monthly block...")
         insert_boct_formulas(sheet_b, month_blocks, reference_col=2, loadport_col="H")
-        print("[INFO] Menambahkan formula Mahakam (AKC & AKK) untuk tiap blok bulan...")
+        print("✒️ Adding the Mahakam formula (AKC & AKK) for each monthly block...")
         insert_mahakam_formulas(sheet_b, month_blocks, reference_col=2, loadport_col="H")
         # renumber_month_blocks(sheet_b)
-        print(f"[OK] Data bulan {month_value} ({month_abbreviation}) selesai diproses.")
+        print(f"🟢 Data in Month {month_value} ({month_abbreviation}) Finished Processing.")
 
-    print("[INFO] Restore plan rows setelah proses semua bulan...")
+    print("🟡 Restore plan rows after processing all months...")
     clear_aon_block(sheet_b)
     restore_plan_rows(wb, sheet_b)
     restore_quality_rows(wb, sheet_b)
@@ -175,6 +181,6 @@ def run_excel_process(input_file: str, output_file: str, month_start: int, month
     apply_status_font(sheet_b)
 
     # Step 5: Save the result back to the input file (final output)
-    print(f"[INFO] Menyimpan hasil akhir ke file {input_file}...")
+    print(f"💾 Save the final result to a file {input_file}...")
     wb.save(input_file)
-    return f"🎉 Processing Complete! Data Copied and Saved to 💾 {input_file}"
+    return f" ✅ Automation Complete! Data Copied and Saved to 💾 {input_file}"

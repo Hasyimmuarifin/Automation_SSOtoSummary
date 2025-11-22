@@ -4,15 +4,15 @@ from openpyxl.styles import PatternFill
 def get_fill_color(cell):
     if cell.fill and cell.fill.fgColor.type == "rgb":
         rgb = cell.fill.fgColor.rgb
-        if rgb and rgb not in ("00000000", "FFFFFFFF"):  # abaikan default hitam/putih
+        if rgb and rgb not in ("00000000", "FFFFFFFF"):  # ignore default black/white
             return rgb
     return None
 
 def backup_quality_rows(wb, sheet_b, backup_sheet_name="backup_complete_quality"):
     """
-    Backup baris dengan status 'Completed' atau 'Loading' atau 'In Progress'
-    - Simpan kolom: Month (C), Company (D), Vessel (E), End User (G)
-    - Simpan juga nilai BU–CC, AON, AOP, AOR, AOT beserta warna fill cell
+    Backup row with the status is 'Completed' or 'Loading' or 'In Progress'
+    - Keep Value in Column : Month (C), Company (D), Vessel (E), End User (G)
+    - Keep also Value in Column BU–CC, AON, AOP, AOR, AOT with the fill cell color
     """
     # hapus sheet lama kalau ada
     if backup_sheet_name in wb.sheetnames:
@@ -145,7 +145,7 @@ def restore_quality_rows(wb, sheet_b, backup_sheet_name="backup_complete_quality
                     if extra_fills[i]:
                         sheet_b.cell(row=r, column=col).fill = PatternFill(start_color=extra_fills[i], end_color=extra_fills[i], fill_type="solid")
 
-                print(f"[RESTORE-QUALITY] Row {r} diperbaruidengan nilai + fill.")
+                print(f"[RESTORE-QUALITY] Row {r} diperbarui dengan nilai + fill.")
                 break  # sudah ketemu
     # hapus sheet backup setelah selesai
     del wb[backup_sheet_name]
