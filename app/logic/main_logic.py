@@ -28,7 +28,7 @@ formulas={
     'AOA': '=(ANU{row}-ANT{row})*24',
     'AOB': '=(ANT{row}-ANS{row})*24',
     'AOC': '=(ANU{row}-ANS{row})*24',
-    'AOD': f'=IF(BS{{row}}="Stevedore"{sep}10000{sep}IF(H{{row}}="BoCT"{sep}40000{sep}IF(H{{row}}="SMD Anc"{sep}25000{sep}IF(H{{row}}="GPK Port"{sep}10000{sep}IF(H{{row}}="Bunyut"{sep}25000{sep}IF(H{{row}}="Jorong"{sep}7000{sep}IF(H{{row}}="JBG Anc"{sep}10000{sep}0)))))))',
+    'AOD': f'=IF(BS{{row}}="Stevedore"{sep}10000{sep}IF(H{{row}}="BoCT"{sep}40000{sep}IF(H{{row}}="Muara Berau"{sep}25000{sep}IF(H{{row}}="Muara Jawa"{sep}25000{sep}IF(H{{row}}="GPK Port"{sep}10000{sep}IF(H{{row}}="Bunyut"{sep}25000{sep}IF(H{{row}}="Jorong"{sep}7000{sep}IF(H{{row}}="JBG Anc"{sep}10000{sep}0))))))))',
     'AOE': '=(BJ{row}/AOD{row})*24',
     'AOF': '=(AOC{row}-AOE{row})/24',
     'AOH': '=AOF{row}*AOG{row}',
@@ -61,10 +61,11 @@ def run_excel_process(input_file: str, output_file: str, month_start: int, month
     """
 
     # Step 1: Copy the new “Loading” sheet to the source, name it “Loading2”
+    print(f"🟢 Starting Copy Sheet Loading Process...")
     copy_sheet_full(input_file, output_file, sheet_name="Loading", new_name="Loading2")
 
     # Step 2: Open the input_file (summary) workbook in the ‘Loading’ sheet to fill in the empty cells in the blending column → 0
-    print(f"🟡 Open Workbook {input_file} to fill empty cell in sheet 'Loading' with 0")
+    print(f"\n🟡 Open Workbook {input_file} to fill empty cell in sheet 'Loading' with 0")
     wb_temp = openpyxl.load_workbook(input_file)
     for target_sheet in ["Loading", "Loading2"]:
         if target_sheet in wb_temp.sheetnames:
@@ -98,9 +99,9 @@ def run_excel_process(input_file: str, output_file: str, month_start: int, month
     if sheet_loading_old:
         print("🟡 Old sheet 'Loading' found, doing backup plan rows...")
         backup_plan_rows(wb, sheet_b)
-        print("🟡 Doing backup Quality, SOS Month, Remark of Penalty's Cause, Remark Demurrage's Cause, and Remark column in status 'complete/loading/in progress' rows...")
+        print("\n🟡 Doing backup Quality, SOS Month, Remark of Penalty's Cause, Remark Demurrage's Cause, and Remark column in status 'complete/loading/in progress' rows...")
         backup_quality_rows(wb, sheet_b)
-        print("🟡 Doing delete or clean plan rows...")
+        print("\n🟡 Doing delete or clean plan rows...")
         delete_or_clear_plan_rows(sheet_b, column_mapping, month_start, month_end)
 
         # --- Step: Normalization month block to 100 ---
@@ -138,7 +139,7 @@ def run_excel_process(input_file: str, output_file: str, month_start: int, month
     processed_months = set()
 
     # Step 5: Iterate through each row in the source sheet
-    print("🟡 Mulai iterasi setiap row pada sheet 'Loading'...")
+    print("\n🟡 Start iterate every row in sheet 'Loading'...")
     for row in range(2, sheet_a.max_row + 1):  # Start from row 2 (skip header)
         month_value = sheet_a.cell(row=row, column=header_columns_a['Month']).value
 

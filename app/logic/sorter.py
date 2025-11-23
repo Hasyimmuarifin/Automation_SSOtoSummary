@@ -1,31 +1,38 @@
 import datetime
 
 # Custom order for loading ports
-custom_order_h = ["BoCT", "SMD Anc", "GPK Port", "Bunyut"]
+loading_port_group = {
+    "BoCT": 0,
+    # "SMD Anc: 1"
+    "Muara Berau": 1,
+    "Muara Jawa": 1,
+    "Bunyut": 2,
+    "GPK Port": 3
+}
 
 # Prefixes used to prioritize vessel names
 custom_order_e = ["MV", "BG", "DUMP"]
 
 def get_order_index_h(val):
     """
-    Get the index of the loading port from the custom order list.
-    
+    Get the index of the loading port from the custom order loading port group.
+
     Parameters:
-        val (str): The loading port value.
-    
+        val : The loading port value.
+
     Returns:
-        int: The index in custom_order_h if found, otherwise a large index to sort it last.
+        int: The index in loading_port_group if found, otherwise a large index to sort it last.
     """
-    return custom_order_h.index(val) if val in custom_order_h else len(custom_order_h)
+    return loading_port_group.get(val, 999)
 
 
 def get_order_index_e(val):
     """
     Get the index of a vessel name based on its prefix (e.g., MV, BG, DUMP).
-    
+
     Parameters:
         val (str): The vessel name.
-    
+
     Returns:
         int: The index in custom_order_e based on prefix, or a large index if no match.
     """
@@ -41,10 +48,10 @@ def get_order_index_e(val):
 def get_order_index_k(val):
     """
     Convert a datetime string or object to a datetime object for sorting.
-    
+
     Parameters:
         val (str or datetime): The ETB value to parse.
-    
+
     Returns:
         datetime: Parsed datetime object or datetime.max if parsing fails.
     """
