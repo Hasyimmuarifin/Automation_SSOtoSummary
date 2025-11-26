@@ -2,56 +2,57 @@ import xlwings as xw
 
 def copy_sheet_full(source_file, target_file, sheet_name="Loading", new_name="Loading2"):
     """
-    Menyalin 1 sheet dari workbook sumber ke workbook target 
-    dengan format, chart, dan layout tetap terjaga.
+    Copy 1 sheet from the source workbook to the target workbook while maintaining the format, charts, and layout.
+
 
     Args:
-        source_file (str): path file Excel sumber (.xlsx, .xlsm)
-        target_file (str): path file Excel tujuan
-        sheet_name (str): nama sheet yang akan dicopy ("Loading")
-        new_name (str): nama sheet Loading baru ("Loading2")
+        source_file (str): source Excel file path (.xlsx, .xlsm) / Summary file
+        target_file (str): Excel destination file path (SSO Output)
+        sheet_name (str): name of the sheet to be copied (“Loading”)
+        new_name (str): name of new loading sheet (“Loading2”)
     """
-    # Jalankan Excel (tidak terlihat)
-    print(f"[INFO] Membuka Excel App (visible=False)...")
+    # Run Excell App (Invisible in the Background)
+    print(f"[START] Copy Sheet Full Process ...")
+    print(f"[INFO] Open Excel App (visible=False)...")
     app = xw.App(visible=False)
-    
+
     try:
-        print(f"[INFO] Membuka workbook sumber: {source_file}")
+        print(f"[INFO] Open workbook source: {source_file}")
         wb_source = app.books.open(source_file)
 
-        print(f"[INFO] Membuka workbook target: {target_file}")
+        print(f"[INFO] Open workbook target: {target_file}")
         wb_target = app.books.open(target_file)
 
-        # Cari sheet dari target
-        print(f"[INFO] Mencari sheet '{sheet_name}' di workbook target...")
+        # Searching for the target sheet
+        print(f"[INFO] Searching sheet '{sheet_name}' in the workbook target...")
         sheet_target = None
         for sh in wb_target.sheets:
-            print(f"   - Ditemukan sheet: {sh.name}")
+            print(f"   - Found sheet: {sh.name}")
             if sh.name.strip() == sheet_name:
                 sheet_target = sh
                 break
         if not sheet_target:
-            raise ValueError(f"Sheet '{sheet_name}' tidak ditemukan di {target_file}")
+            raise ValueError(f"Sheet '{sheet_name}' not found in the {target_file}")
         else:
-            print(f"[OK] Sheet '{sheet_name}' ditemukan.")
+            print(f"[OK] Sheet '{sheet_name}' Found.")
 
-        # Copy sheet dari target ke source, beri nama sementara
-        print(f"[INFO] Menyalin sheet '{sheet_name}' ke workbook sumber...")
+        # Copy sheet from target to source, give temporary name
+        print(f"[INFO] Copy sheet '{sheet_name}' to workbook source...")
         sheet_target.api.Copy(Before=wb_source.sheets[0].api)
 
-        # Pastikan nama sheet konsisten
-        print(f"[INFO] Mengubah nama sheet hasil copy menjadi '{new_name}'...")
+        # Ensure that the sheet names are consistent
+        print(f"[INFO] Change sheet name result of copy to '{new_name}'...")
         wb_source.sheets[0].name = new_name
 
-        # Save hasil ke source_file
-        print(f"[INFO] Menyimpan perubahan ke {source_file}...")
+        # Save the result to source_file
+        print(f"[INFO] Saving Changes to {source_file}...")
         wb_source.save()
 
-        print("[SUCCESS] Proses penyalinan selesai.")
+        print("[SUCCESS] The copying process is complete..")
 
     finally:
-        print("[INFO] Menutup workbook dan Excel App...")
+        print("[INFO] Close workbook and Excel App...")
         wb_source.close()
         wb_target.close()
         app.quit()
-        print("[OK] Semua resource sudah ditutup.")
+        print("[OK] All resources have been closed.")
