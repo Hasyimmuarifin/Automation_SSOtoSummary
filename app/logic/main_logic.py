@@ -61,10 +61,11 @@ def run_excel_process(input_file: str, output_file: str, month_start: int, month
     """
 
     # Step 1: Copy the new “Loading” sheet to the source, name it “Loading2”
+    print(f"🟢 Starting Copy Sheet Loading Process...")
     copy_sheet_full(input_file, output_file, sheet_name="Loading", new_name="Loading2")
 
     # Step 2: Open the input_file (summary) workbook in the ‘Loading’ sheet to fill in the empty cells in the blending column → 0
-    print(f"🟡 Open Workbook {input_file} to fill empty cell in sheet 'Loading' with 0")
+    print(f"\n🟡 Open Workbook {input_file} to fill empty cell in sheet 'Loading' with 0")
     wb_temp = openpyxl.load_workbook(input_file)
     for target_sheet in ["Loading", "Loading2"]:
         if target_sheet in wb_temp.sheetnames:
@@ -98,9 +99,9 @@ def run_excel_process(input_file: str, output_file: str, month_start: int, month
     if sheet_loading_old:
         print("🟡 Old sheet 'Loading' found, doing backup plan rows...")
         backup_plan_rows(wb, sheet_b)
-        print("🟡 Doing backup Quality, SOS Month, Remark of Penalty's Cause, Remark Demurrage's Cause, and Remark column in status 'complete/loading/in progress' rows...")
+        print("\n🟡 Doing backup Quality, SOS Month, Remark of Penalty's Cause, Remark Demurrage's Cause, and Remark column in status 'complete/loading/in progress' rows...")
         backup_quality_rows(wb, sheet_b)
-        print("🟡 Doing delete or clean plan rows...")
+        print("\n🟡 Doing delete or clean plan rows...")
         delete_or_clear_plan_rows(sheet_b, column_mapping, month_start, month_end)
 
         # --- Step: Normalization month block to 100 ---
@@ -138,7 +139,7 @@ def run_excel_process(input_file: str, output_file: str, month_start: int, month
     processed_months = set()
 
     # Step 5: Iterate through each row in the source sheet
-    print("🟡 Mulai iterasi setiap row pada sheet 'Loading'...")
+    print("\n🟡 Start iterate every row in sheet 'Loading'...")
     for row in range(2, sheet_a.max_row + 1):  # Start from row 2 (skip header)
         month_value = sheet_a.cell(row=row, column=header_columns_a['Month']).value
 

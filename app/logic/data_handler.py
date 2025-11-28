@@ -13,41 +13,41 @@ from .auto_separator import get_formula_separator
 def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, header_columns_a, column_mapping):
     """
     Process & transfer monthly data (no-duplicate). 
-    - If (Company, Vessel name, End user) already exists in the month block of 'ITM Summary',
-      the row is refreshed (non-key columns cleared and refilled with latest values).
+    - If (Company, Vessel name, End user) already exists in the month block of 'ITM Summary', the row is refreshed (non-key columns cleared and refilled with latest values).
     - New combos are appended.
     - Styles for N–BI are preserved; for updated rows, only styles are restored (not old values).
     """
 
-    print(f"⏳ Processing month {month_abbreviation.upper()}...")
+    print(f"   ⏳ Processing month {month_abbreviation.upper()}...")
 
     # --- Locate the start row (month block) in Sheet B ---
     cut_start_row = None
-    print(f"🔎 Looking for month: {month_abbreviation}")
+    print(f"   🔎 Looking for month: {month_abbreviation}")
     for row in range(1, sheet_b.max_row + 1):
         cell_val = sheet_b.cell(row=row, column=2).value
         if cell_val:
-            print(f"Row {row}, Col B = {cell_val}")  # 👈 cek isi nyata di Excel
+            print(f"Row {row}, Col B = {cell_val}")
         if cell_val and isinstance(cell_val, str) and cell_val.strip().lower().startswith(month_abbreviation.lower()):
-            cut_start_row = row + 3  # data starts 3 rows below header
+            cut_start_row = row + 3
             break
     if cut_start_row is None:
-        print(f"❌ Month {month_abbreviation.upper()} not found in Sheet B.")
+        print(f"   ❌ Month {month_abbreviation.upper()} not found in Sheet B.")
         return
     else:
-        print(f"✅ Found {month_abbreviation.upper()} starting at row {cut_start_row}")
+        print(f"   ✅ Found {month_abbreviation.upper()} starting at row {cut_start_row}")
 
     # --- Find the end row of the month block (stop when Column C empty) ---
     cut_end_row = cut_start_row
     while cut_end_row <= sheet_b.max_row :
-        val_b = sheet_b.cell(row=cut_end_row, column=3).value
-        # berhenti kalau benar-benar kosong (None atau string kosong)
-        if val_b is None or str(val_b).strip() == "":
+        val_c = sheet_b.cell(row=cut_end_row, column=3).value
+        # stop if truly empty (None or empty string)
+        if val_c is None or str(val_c).strip() == "":
             break
         cut_end_row += 1
     cut_end_row -= 1
 
     # --- Key columns / extra columns & indexes ---
+    l_col = column_index_from_string("L")
     n_col  = column_index_from_string('N')
     bi_col = column_index_from_string('BI')
     bl_col = column_index_from_string('BL')
@@ -59,53 +59,98 @@ def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, he
     akq_col = column_index_from_string('AKQ')
     extra_cols = [bl_col, bm_col, bs_col]
 
+    # Backup Values N-BI + extra cols (BL, BM, BS)
     # --- Backup values, fills, fonts for the whole block (needed for style restore) ---
     cut_data_dict = {}
     for row in sheet_b.iter_rows(min_row=cut_start_row, max_row=cut_end_row,
                                  min_col=n_col, max_col=bs_col):
         row_idx = row[0].row
-        vessel_name = sheet_b.cell(row=row_idx, column=5).value  # Column E
+        vessel_name = sheet_b.cell(row=row_idx, column=5).value
+        buyer       = sheet_b.cell(row=row_idx, column=6).value
+        end_user    = sheet_b.cell(row=row_idx, column=7).value
+
+        key = (vessel_name, buyer, end_user)
         values_and_styles = {}
+
         for cell in row:
             col_idx = cell.column
+
+            # --- N to BI ---: backup value + fill + font
             if n_col <= col_idx <= bi_col:
                 values_and_styles[col_idx] = (
                     cell.value,
                     copy(cell.fill),
                     copy(cell.font)
                 )
+
+            # --- BL / BM / BS columns ---: backup value only (formulas will be re-applied later)
             elif col_idx in extra_cols:
                 val = cell.value
-                # hanya ubah kalau ini formula (string yang dimulai dengan '=')
+                # only change if this is a formula (string starting with ‘=’)
                 if isinstance(val, str) and val.startswith('='):
-                    # tangani juga referensi dengan $ (contoh: $BL$1022)
-                    # akan mengganti semua BL/BM<angka> jadi BL{ROW} (preserve $ jika ada)
+                    # also handle references with $ (example: $BL$1022)
+                    # will replace all BL/BM<number> with BL{ROW} (preserve $ if present)
                     val = re.sub(r'(\$?(?:BL|BM)\$?)\d+', r'\1{ROW}', val, flags=re.IGNORECASE)
-                # simpan nilai yang sudah diproses (JANGAN pakai cell.value lagi)
+                # save the processed value (DO NOT use cell.value again)
                 values_and_styles[col_idx] = (val, None, None)  # value only
-        cut_data_dict[vessel_name] = values_and_styles
+        cut_data_dict[key] = values_and_styles
+
+    # --- Backup Column L (ETD) terpisah ---
+    for row_idx in range(cut_start_row, cut_end_row + 1):
+        vessel_name = sheet_b.cell(row=row_idx, column=5).value
+        buyer       = sheet_b.cell(row=row_idx, column=6).value
+        end_user    = sheet_b.cell(row=row_idx, column=7).value
+
+        key = (vessel_name, buyer, end_user)
+
+        cell = sheet_b.cell(row=row_idx, column=l_col)
+        val = cell.value
+
+        if isinstance(val, str) and val.startswith("="):
+            val = re.sub(
+                r'\b(\$?[A-Z]{1,3}\$?)\d+\b',
+                r'\1{ROW}',
+                val,
+                flags=re.IGNORECASE
+            )
+
+        # Pastikan dictionary ada
+        if key not in cut_data_dict:
+            cut_data_dict[key] = {}
+
+        cut_data_dict[key][l_col] = (val, None, None)
 
     # --- Backup values AKK–AKQ ---
     akk_data_dict = {}
     for row in sheet_b.iter_rows(min_row=cut_start_row, max_row=cut_end_row,
                                 min_col=akk_col, max_col=akq_col):
         row_idx = row[0].row
-        vessel_name = sheet_b.cell(row=row_idx, column=5).value  # Column E (unique key)
+        vessel_name = sheet_b.cell(row=row_idx, column=5).value
+        buyer       = sheet_b.cell(row=row_idx, column=6).value
+        end_user    = sheet_b.cell(row=row_idx, column=7).value
+
+        key = (vessel_name, buyer, end_user)
         values_dict = {}
+
         for cell in row:
             values_dict[cell.column] = cell.value
-        akk_data_dict[vessel_name] = values_dict
+        akk_data_dict[key] = values_dict
 
     # --- Backup values AKC–AKI ---
     akc_data_dict = {}
     for row in sheet_b.iter_rows(min_row=cut_start_row, max_row=cut_end_row,
                                 min_col=akc_col, max_col=aki_col):
         row_idx = row[0].row
-        vessel_name = sheet_b.cell(row=row_idx, column=5).value  # Column E (unique key)
+        vessel_name = sheet_b.cell(row=row_idx, column=5).value
+        buyer       = sheet_b.cell(row=row_idx, column=6).value
+        end_user    = sheet_b.cell(row=row_idx, column=7).value
+
+        key = (vessel_name, buyer, end_user)
         values_dict = {}
+
         for cell in row:
             values_dict[cell.column] = cell.value
-        akc_data_dict[vessel_name] = values_dict
+        akc_data_dict[key] = values_dict
 
     # --- Clear old block (only N–BI values + BL/BM/BS values), (AKC-AKQ values) ---
     for row in sheet_b.iter_rows(min_row=cut_start_row, max_row=cut_end_row,
@@ -130,22 +175,24 @@ def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, he
 
     # === PREP: matching helpers ===
     # Key fields MUST match the names in column_mapping exactly
-    key_field_names = {'Company', 'Vessel name', 'End user'}
+    key_field_names = {'Vessel name', 'Buyer', 'End user'}
     key_cols_b = {
-        'Company':     column_index_from_string(column_mapping['Company']),
+        # 'Company':     column_index_from_string(column_mapping['Company']),
         'Vessel name': column_index_from_string(column_mapping['Vessel name']),
+        'Buyer': column_index_from_string(column_mapping['Buyer']),
         'End user':    column_index_from_string(column_mapping['End user']),
     }
 
     def get_keys_from_sheet(sheet, row_idx):
         return (
-            sheet.cell(row=row_idx, column=key_cols_b['Company']).value,
+            # sheet.cell(row=row_idx, column=key_cols_b['Company']).value,
             sheet.cell(row=row_idx, column=key_cols_b['Vessel name']).value,
+            sheet.cell(row=row_idx, column=key_cols_b['Buyer']).value,
             sheet.cell(row=row_idx, column=key_cols_b['End user']).value
         )
 
     def find_matching_row_in_block(keys_tuple):
-        comp, ves, eus = keys_tuple
+        ves, buy, eus = keys_tuple
         for r in range(cut_start_row, cut_end_row + 1):
             if get_keys_from_sheet(sheet_b, r) == keys_tuple:
                 return r
@@ -163,8 +210,9 @@ def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, he
             continue
 
         keys_tuple = (
-            sheet_a.cell(row=row, column=header_columns_a['Company']).value,
+            # sheet_a.cell(row=row, column=header_columns_a['Company']).value,
             sheet_a.cell(row=row, column=header_columns_a['Vessel name']).value,
+            sheet_a.cell(row=row, column=header_columns_a['Buyer']).value,
             sheet_a.cell(row=row, column=header_columns_a['End user']).value
         )
 
@@ -184,7 +232,7 @@ def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, he
             else:
                 sheet_b.cell(row=dest_row, column=col_idx_b).value = val
                 
-        # helper untuk track kolom yang tidak boleh dihapus
+        # helper for tracking columns that cannot be deleted
         protected_columns = set(key_field_names) | {"Status"}
 
         if match_row:
@@ -203,7 +251,7 @@ def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, he
                 _write_value(match_row, col_name, col_a, col_b)
 
             # mark this vessel as updated (used in restore step)
-            updated_vessel_names.add(keys_tuple[1])  # Vessel name (Column E)
+            updated_vessel_names.add(keys_tuple)
         else:
             # --- APPEND: write new row at current_row_b ---
             for col_name, col_letter_b in column_mapping.items():
@@ -214,7 +262,7 @@ def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, he
                 _write_value(current_row_b, col_name, col_a, col_b)
             current_row_b += 1
 
-    # 📝 Isi default untuk kolom BQ (Status) jika kosong (SEBELUM sorting)
+    # 📝 Default content for column BQ (Status) if empty (BEFORE sorting)
     print("📝 Updating BQ (Status) if Empty before sorting...")
     for row in range(cut_start_row, current_row_b):
         col_bq_val = str(sheet_b[f"BQ{row}"].value or "").upper().strip()
@@ -241,20 +289,34 @@ def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, he
     # For UPDATED vessels:
     #   - N–BI: restore fill/font ONLY (keep new values)
     #   - BL/BM/BS: skip restoring values (keep new)
-    sorted_vessel_names = [row[4] for row in data_rows_sorted]  # Column E
-    for i, vessel_name in enumerate(sorted_vessel_names):
-        values_and_styles = cut_data_dict.get(vessel_name)
+    sorted_keys = [
+        (
+            row[key_cols_b['Vessel name'] - 1],
+            row[key_cols_b['Buyer'] - 1],
+            row[key_cols_b['End user'] - 1],
+        )
+        for row in data_rows_sorted
+    ]
+    for i, vessel_name in enumerate(sorted_keys):
+        values_and_styles = cut_data_dict.get(sorted_keys[i])
         if not values_and_styles:
             continue
 
-        row_num = sort_start + i  # nomor baris nyata di Sheet B setelah sort
+        row_num = sort_start + i
 
         for col_idx, (val, fill, font) in values_and_styles.items():
             target_cell = sheet_b.cell(row=row_num, column=col_idx)
 
+            # --- Handle restore for Column L (dynamic formulas) ---
+            if col_idx == column_index_from_string('L'):
+                if isinstance(val, str) and "{ROW}" in val:
+                    target_cell.value = val.replace("{ROW}", str(row_num))
+                else:
+                    target_cell.value = val
+                continue
+
             if vessel_name in updated_vessel_names:
-                # Untuk ROWS YANG DIUPDATE: hanya restore style untuk N–BI,
-                # dan SKIP restore value untuk extra_cols (BL/BM/BS)
+                # For UPDATED ROWS: only restore style for N–BI, and SKIP restore value for extra_cols (BL/BM/BS)
                 if n_col <= col_idx <= bi_col:
                     # keep NEW value, restore only style
                     if fill is not None:
@@ -264,8 +326,8 @@ def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, he
                 # extra_cols : do nothing (keep new value)
                 continue
 
-            # UNTUK ROWS YANG TIDAK DIUPDATE: restore value (dan restore style untuk N–BI)
-            # jika value punya placeholder {ROW}, ganti jadi nomor baris aktual
+            # FOR ROWS THAT ARE NOT UPDATED: restore value (and restore style for N–BI)
+            # if the value has a placeholder {ROW}, replace it with the actual row number
             if isinstance(val, str) and "{ROW}" in val:
                 target_cell.value = val.replace("{ROW}", str(row_num))
             else:
@@ -278,7 +340,7 @@ def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, he
                 if font is not None:
                     target_cell.font = font
 
-    for i, vessel_name in enumerate(sorted_vessel_names):  # hasil sort (E)
+    for i, vessel_name in enumerate(sorted_keys):
         values_dict = akc_data_dict.get(vessel_name)
         if not values_dict:
             continue
@@ -286,7 +348,7 @@ def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, he
         for col_idx, val in values_dict.items():
             target_cell = sheet_b.cell(row=sort_start + i, column=col_idx)
             target_cell.value = val
-    for i, vessel_name in enumerate(sorted_vessel_names):  # hasil sort (E)
+    for i, vessel_name in enumerate(sorted_keys):
         values_dict = akk_data_dict.get(vessel_name)
         if not values_dict:
             continue
@@ -295,7 +357,7 @@ def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, he
             target_cell = sheet_b.cell(row=sort_start + i, column=col_idx)
             target_cell.value = val
 
-    # --- Update Kolom AOG berdasarkan prefiks di Kolom E ---
+    # --- Update Column AOG based on the prefix in Column E ---
     print("📝 Updating AOG column based on Vessel prefixes...")
     for row in range(sort_start, sort_end + 1):
         col_e_val = str(sheet_b[f"E{row}"].value or "").upper().strip()
@@ -308,15 +370,15 @@ def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, he
             case _ if col_e_val == "":
                 sheet_b[f"AOG{row}"].value = None
             case _:
-                # Kalau tidak cocok apapun, kosongkan cell
+                # If nothing match, leave the cell blank.
                 sheet_b[f"AOG{row}"].value = None
 
-    # 📝 Isi default untuk kolom BQ dan ANR jika kosong
+    # 📝 Default values for columns BQ and ANR if empty
     print("📝 Updating BQ (Status) and ANR (Time) if Empty...")
     for row in range(sort_start, sort_end + 1):
         col_anr_val = str(sheet_b[f"ANR{row}"].value or "").upper().strip()
 
-        # Kolom ANR (Time) default 12
+        # ANR Column (Time) default 12
         match True:
             case _ if col_anr_val == "":
                 sheet_b[f"ANR{row}"].value = 12
@@ -329,7 +391,7 @@ def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, he
         end_row=sort_end,
         included_columns=['B', 'BJ', 'BO', 'AKK', 'ANO', 'ANQ', 'ANS', 'ANT', 'ANU', 'ANX', 'AOA', 'AOB', 'AOC', 'AOD', 'AOE', 'AOF', 'AOH', 'AOI', 'AOJ', 'AOK'],
         formulas={
-            # 'B': f"=ROW()-ROW($B${sort_start})+1", # nomor urut otomatis
+            # 'B': f"=ROW()-ROW($B${sort_start})+1",
             'BJ': '=IFERROR(SUM(N{row}:BI{row}),"NULL")',
             'BO': '=(SUMIF($N$892:$BI$892,D{row},N{row}:BI{row}))/BJ{row}',
             'AKK': '=(AOH{row}/BJ{row})*-1',
@@ -352,7 +414,7 @@ def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, he
         }
     )
 
-    # --- Tambahan untuk membuat formula dinamis FC Quality Master ---
+    # --- Additions to create a dynamic FC Quality Master formula ---
     def build_fc_formula(col_letter, row, sheet_b, sep):
         """
         Build Excel formula untuk kolom tertentu (col_letter) dan baris row,
@@ -385,7 +447,7 @@ def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, he
             f"{sep}\"NULL\")"
         )
 
-    # --- APPLY FORMULAS KE 432 KOLOM ---
+    # --- APPLY FORMULAS TO 432 COLUMN ---
     fc_formula_columns = [
         ("CE", "DZ"),
         ("EB", "FW"),
@@ -408,7 +470,7 @@ def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, he
                 formula = build_fc_formula(col_letter, r, sheet_b, sep)
                 sheet_b[f"{col_letter}{r}"].value = formula
 
-    # --- Tambahan: APPLY FORMULAS KE 432 KOLOM (TD–AKA) ---
+    # --- Additional : APPLY FORMULAS TO 432 COLUMN (TD–AKA) ---
     custom_formula_columns = [
         ("TD", "UY"),
         ("VA", "WV"),
@@ -421,19 +483,19 @@ def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, he
         ("AIF", "AKA"),
     ]
 
-    # Range kolom untuk bagian kiri (ulang tiap blok)
+    # Column range for the left section (repeat for each block)
     left_start = column_index_from_string("N")
     left_end   = column_index_from_string("BI")
     left_range = list(range(left_start, left_end + 1))
 
-    # flatten daftar kolom kanan sesuai fc_formula_columns
+    # flatten the right column list according to fc_formula_columns
     right_columns = []
     for start_col, end_col in fc_formula_columns:
         start_idx = column_index_from_string(start_col)
         end_idx   = column_index_from_string(end_col)
         right_columns.extend(range(start_idx, end_idx + 1))
 
-    right_iter = iter(right_columns)  # supaya bisa maju sesuai definisi blok fc
+    right_iter = iter(right_columns)  # so that it can step next according to the definition of block fc
 
     for start_col, end_col in custom_formula_columns:
         start_idx = column_index_from_string(start_col)
@@ -442,18 +504,18 @@ def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, he
         # ulang lagi untuk left tiap blok
         for offset, c in enumerate(range(start_idx, end_idx + 1)):
             col_letter = get_column_letter(c)
-            left_col_letter = get_column_letter(left_range[offset])   # N–BI (ulang)
-            right_col_letter = get_column_letter(next(right_iter))    # CE–... (maju sesuai fc_formula_columns)
+            left_col_letter = get_column_letter(left_range[offset])   # N–BI (repeat)
+            right_col_letter = get_column_letter(next(right_iter))    # CE–... (move forward according to fc_formula_columns)
 
             for r in range(sort_start, sort_end + 1):
                 sheet_b[f"{col_letter}{r}"].value = (
                     f'=IFERROR({left_col_letter}{r}*{right_col_letter}{r}/$BJ{r},"NULL")'
                 )
 
-    # --- Tambahan: APPLY FORMULAS untuk KOLOM (BU - CC) ---
-    # gunakan separator lokal
-    # (pakai variabel `sep` yang sudah kamu set beberapa baris di atas dengan get_formula_separator())
-    # mapping bulan ke offset
+    # --- Additional: APPLY FORMULAS to (BU - CC) Column ---
+    # use a local separator
+    # (use the `sep` variable that you set a few lines above with get_formula_separator())
+    # month mapping to offset
     month_offset_map = {
         1: 4,     # Jan
         2: 130,   # Feb
@@ -473,11 +535,10 @@ def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, he
         sumif_start = column_index_from_string("BU")
         sumif_end   = column_index_from_string("CC")
 
-        # mulai persis dari sort_start (di kode kamu sort_start = header+3, jadi sudah benar)
+        # start exactly from sort_start (in your code sort_start = header+3, so it's correct)
         for r in range(sort_start, sort_end + 1):  # mulai dari sort_start langsung
             for c in range(sumif_start, sumif_end + 1):
                 col_letter = get_column_letter(c)
-                # =IFERROR(SUMIF(OFFSET($TD$off;0;0;1;1428); col$off+1; OFFSET($TDrow;0;0;1;1428)) ; "NULL")
                 formula = (
                     f'=IFERROR('
                     f'SUMIF(OFFSET($TD${offset_row}{sep}0{sep}0{sep}1{sep}1428)'
@@ -493,4 +554,4 @@ def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, he
     # --- Replace zeros with None (to avoid showing 0s in output) ---
     replace_zeros_with_none_in_sheet(sheet_b, start_row=sort_start, end_row=sort_end)
 
-    print(f"✅ Successfully processed month {month_abbreviation.upper()} from Sheet A → Sheet B.")
+    print(f"   ✅ Successfully processed month {month_abbreviation.upper()} from Sheet A → Sheet B.")

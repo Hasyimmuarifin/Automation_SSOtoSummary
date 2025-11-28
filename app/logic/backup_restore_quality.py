@@ -11,12 +11,13 @@ def get_fill_color(cell):
 def backup_quality_rows(wb, sheet_b, backup_sheet_name="backup_complete_quality"):
     """
     Backup row with the status is 'Completed' or 'Loading' or 'In Progress'
-    - Keep Value in Column : Month (C), Company (D), Vessel (E), End User (G)
-    - Keep also Value in Column BU–CC, AON, AOP, AOR, AOT with the fill cell color
+       - Keep Value in Column : Month (C), Company (D), Vessel (E), End User (G)
+       - Keep also Value in Column BU–CC, AON, AOP, AOR, AOT with the fill cell color
     """
-    # hapus sheet lama kalau ada
+    # delete the old sheet if there is already exist
     if backup_sheet_name in wb.sheetnames:
         del wb[backup_sheet_name]
+
     ws_backup = wb.create_sheet(backup_sheet_name)
 
     # header
@@ -28,8 +29,8 @@ def backup_quality_rows(wb, sheet_b, backup_sheet_name="backup_complete_quality"
     )
     ws_backup.append(headers)
 
-    # kolom index
-    COL_STATUS = 69   # BQ
+    # index column
+    COL_BQ = 69       # Status
     COL_C = 3         # Month
     COL_D = 4         # Company
     COL_E = 5         # Vessel
@@ -42,14 +43,14 @@ def backup_quality_rows(wb, sheet_b, backup_sheet_name="backup_complete_quality"
     COL_AOT = 1047
 
     for row in range(2, sheet_b.max_row + 1):
-        status = sheet_b.cell(row=row, column=COL_STATUS).value
+        status = sheet_b.cell(row=row, column=COL_BQ).value
         if status in ("Completed", "Loading", "In Progress"):
             month   = sheet_b.cell(row=row, column=COL_C).value
             company = sheet_b.cell(row=row, column=COL_D).value
             vessel  = sheet_b.cell(row=row, column=COL_E).value
             enduser = sheet_b.cell(row=row, column=COL_G).value
 
-            # ambil nilai BU–CC
+            # take the BU–CC value
             values = []
             for col in range(COL_BU, COL_CC + 1):
                 cell = sheet_b.cell(row=row, column=col)
@@ -61,7 +62,7 @@ def backup_quality_rows(wb, sheet_b, backup_sheet_name="backup_complete_quality"
                 fill = get_fill_color(cell)
                 values.append(fill)
 
-            # ambil tambahan AON, AOP, AOR, AOT
+            # take additional AON, AOP, AOR, AOT column value
             for col in (COL_AON, COL_AOP, COL_AOR, COL_AOT):
                 cell = sheet_b.cell(row=row, column=col)
                 values.append(cell.value)
@@ -69,21 +70,21 @@ def backup_quality_rows(wb, sheet_b, backup_sheet_name="backup_complete_quality"
             row_data = [month, company, vessel, enduser] + values
             ws_backup.append(row_data)
 
-            print(f"[BACKUP-QUALITY] Row {row} dibackup.")
+            print(f"   [BACKUP-QUALITY] Row {row} backed up.")
 
 
 def restore_quality_rows(wb, sheet_b, backup_sheet_name="backup_complete_quality"):
     """
-    Restore data dari sheet backup_complete_quality ke sheet ITM Summary (sheet_b).
-    Matching berdasarkan 4 kolom: Month, Company, Vessel, End User.
+    Restore data from the backup_complete_quality sheet to the ITM Summary sheet (sheet_b).
+    Matching based on 4 columns: Month, Company, Vessel, End User.
     """
     if backup_sheet_name not in wb.sheetnames:
-        print("[RESTORE-QUALITY] Tidak ada sheet backup_complete_quality. Restore dibatalkan.")
+        print("   [RESTORE-QUALITY] There is no backup_complete_quality sheet. Restore canceled.")
         return
 
     ws_backup = wb[backup_sheet_name]
 
-    # index kolom pada sheet ITM Summary
+    # index column
     COL_C = 3         # Month
     COL_D = 4         # Company
     COL_E = 5         # Vessel
@@ -95,7 +96,7 @@ def restore_quality_rows(wb, sheet_b, backup_sheet_name="backup_complete_quality
     COL_AOR = 1045
     COL_AOT = 1047
 
-    # iterasi semua baris backup
+    # iterate through all backup rows
     for row in range(2, ws_backup.max_row + 1):
         month_bkp   = ws_backup.cell(row=row, column=1).value
         company_bkp = ws_backup.cell(row=row, column=2).value
@@ -121,7 +122,7 @@ def restore_quality_rows(wb, sheet_b, backup_sheet_name="backup_complete_quality
             for col in range(start_extra + 4, start_extra + 8)
         ]
 
-        # cari baris cocok di sheet ITM Summary
+        # find matching rows in the ITM Summary sheet
         for r in range(2, sheet_b.max_row + 1):
             if (
                 sheet_b.cell(r, COL_C).value == month_bkp and
@@ -137,7 +138,7 @@ def restore_quality_rows(wb, sheet_b, backup_sheet_name="backup_complete_quality
                     if fills_bkp[idx]:
                         sheet_b.cell(row=r, column=col).fill = PatternFill(start_color=fills_bkp[idx], end_color=fills_bkp[idx], fill_type="solid")
 
-                # restore tambahan AON–AOT (4 kolom setelah BU–CC)
+                # additional restore for AON–AOT column (4 column after BU–CC)
                 for i, col in enumerate((COL_AON, COL_AOP, COL_AOR, COL_AOT)):
                     val = extra_vals[i]
                     if val is not None:
@@ -145,27 +146,26 @@ def restore_quality_rows(wb, sheet_b, backup_sheet_name="backup_complete_quality
                     if extra_fills[i]:
                         sheet_b.cell(row=r, column=col).fill = PatternFill(start_color=extra_fills[i], end_color=extra_fills[i], fill_type="solid")
 
-                print(f"[RESTORE-QUALITY] Row {r} diperbarui dengan nilai + fill.")
-                break  # sudah ketemu
-    # hapus sheet backup setelah selesai
+                print(f"   [RESTORE-QUALITY] Row {r} updated with the value + fill.")
+                break
+    # delete the backup sheet after finishing
     del wb[backup_sheet_name]
-    print("[RESTORE-QUALITY] Sheet backup_complete_quality berhasil dihapus setelah restore.")
+    print("   [RESTORE-QUALITY] Sheet backup_complete_quality successfully deleted after restore.")
 
 def clear_plan_fill(wb, sheet_b):
     """
-    Menghapus warna fill (membuat putih/default) pada kolom BU–CC
-    untuk setiap baris yang memiliki Status == 'Plan' (kolom BQ).
+    Remove the fill color (make it white/default) in the BU–CC column for each row that has Status == ‘Plan’ (column BQ).
     """
-    COL_STATUS = 69   # BQ
+    COL_BQ = 69   # Status
     COL_BU = 73
     COL_CC = 82
 
     count = 0
     for r in range(2, sheet_b.max_row + 1):
-        status = str(sheet_b.cell(r, COL_STATUS).value or "").strip().lower()
+        status = str(sheet_b.cell(r, COL_BQ).value or "").strip().lower()
         if status == "plan":
             for col in range(COL_BU, COL_CC + 1):
                 sheet_b.cell(row=r, column=col).fill = PatternFill()  # clear fill
             count += 1
 
-    print(f"[CLEAR-FILL] {count} baris dengan status 'Plan' diwarnai putih (tanpa fill).")
+    print(f"[CLEAR-FILL] {count}  rows with the status ‘Plan’ are colored white (no fill) in columns BU–CC.")
