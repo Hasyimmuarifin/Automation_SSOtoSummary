@@ -2,7 +2,7 @@ import datetime
 import re
 from copy import copy
 from openpyxl.utils import column_index_from_string, get_column_letter
-from openpyxl.styles import PatternFill
+from openpyxl.styles import PatternFill, Font, Color
 from .sorter import sort_data_rows
 from .formula import apply_translated_formulas
 from .formatting import apply_font_colors
@@ -13,7 +13,7 @@ from .auto_separator import get_formula_separator
 def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, header_columns_a, column_mapping):
     """
     Process & transfer monthly data (no-duplicate). 
-    - If (Company, Vessel name, End user) already exists in the month block of 'ITM Summary', the row is refreshed (non-key columns cleared and refilled with latest values).
+    - If (Company, Vessel name, Buyer, End user) already exists in the month block of 'ITM Summary', the row is refreshed (non-key columns cleared and refilled with latest values).
     - New combos are appended.
     - Styles for N–BI are preserved; for updated rows, only styles are restored (not old values).
     """
@@ -45,6 +45,7 @@ def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, he
             break
         cut_end_row += 1
     cut_end_row -= 1
+    print(f"End row for month block {month_value} found at row: {cut_end_row}")
 
     # --- Key columns / extra columns & indexes ---
     l_col = column_index_from_string("L")
@@ -62,8 +63,7 @@ def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, he
     # Backup Values N-BI + extra cols (BL, BM, BS)
     # --- Backup values, fills, fonts for the whole block (needed for style restore) ---
     cut_data_dict = {}
-    for row in sheet_b.iter_rows(min_row=cut_start_row, max_row=cut_end_row,
-                                 min_col=n_col, max_col=bs_col):
+    for row in sheet_b.iter_rows(min_row=cut_start_row, max_row=cut_end_row, min_col=n_col, max_col=bs_col):
         row_idx = row[0].row
         vessel_name = sheet_b.cell(row=row_idx, column=5).value
         buyer       = sheet_b.cell(row=row_idx, column=6).value
@@ -120,10 +120,24 @@ def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, he
 
         cut_data_dict[key][l_col] = (val, None, None)
 
+    print("\n================ DEBUG: cut_data_dict CONTENT ================\n")
+
+    for key, cols in cut_data_dict.items():
+        vessel, buyer, end_user = key
+        print(f"KEY = (Vessel='{vessel}', Buyer='{buyer}', EndUser='{end_user}')")
+
+        for col_idx, (val, fill, font) in cols.items():
+            style_info = []
+            style_info.append("value only" if (fill is None and font is None) else "value+style")
+            print(f"  - Col {col_idx}: {val}   ({', '.join(style_info)})")
+
+        print("--------------------------------------------------------------")
+
+    print("\n================ END DEBUG ==================\n")
+
     # --- Backup values AKK–AKQ ---
     akk_data_dict = {}
-    for row in sheet_b.iter_rows(min_row=cut_start_row, max_row=cut_end_row,
-                                min_col=akk_col, max_col=akq_col):
+    for row in sheet_b.iter_rows(min_row=cut_start_row, max_row=cut_end_row, min_col=akk_col, max_col=akq_col):
         row_idx = row[0].row
         vessel_name = sheet_b.cell(row=row_idx, column=5).value
         buyer       = sheet_b.cell(row=row_idx, column=6).value
@@ -136,10 +150,22 @@ def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, he
             values_dict[cell.column] = cell.value
         akk_data_dict[key] = values_dict
 
+    print("\n=============== DEBUG: akk_data_dict CONTENT ===============\n")
+
+    for key, cols in akk_data_dict.items():
+        vessel, buyer, end_user = key
+        print(f"KEY = (Vessel='{vessel}', Buyer='{buyer}', EndUser='{end_user}')")
+
+        for col_idx, val in cols.items():
+            print(f"  - Col {col_idx}: {val}")
+
+        print("--------------------------------------------------------------")
+
+    print("\n================ END DEBUG (AKK–AKQ) ==================\n")
+
     # --- Backup values AKC–AKI ---
     akc_data_dict = {}
-    for row in sheet_b.iter_rows(min_row=cut_start_row, max_row=cut_end_row,
-                                min_col=akc_col, max_col=aki_col):
+    for row in sheet_b.iter_rows(min_row=cut_start_row, max_row=cut_end_row, min_col=akc_col, max_col=aki_col):
         row_idx = row[0].row
         vessel_name = sheet_b.cell(row=row_idx, column=5).value
         buyer       = sheet_b.cell(row=row_idx, column=6).value
@@ -152,24 +178,33 @@ def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, he
             values_dict[cell.column] = cell.value
         akc_data_dict[key] = values_dict
 
+    print("\n=============== DEBUG: akc_data_dict CONTENT ===============\n")
+
+    for key, cols in akc_data_dict.items():
+        vessel, buyer, end_user = key
+        print(f"KEY = (Vessel='{vessel}', Buyer='{buyer}', EndUser='{end_user}')")
+
+        for col_idx, val in cols.items():
+            print(f"  - Col {col_idx}: {val}")
+
+        print("--------------------------------------------------------------")
+
+    print("\n================ END DEBUG (AKK–AKQ) ==================\n")
+
     # --- Clear old block (only N–BI values + BL/BM/BS values), (AKC-AKQ values) ---
-    for row in sheet_b.iter_rows(min_row=cut_start_row, max_row=cut_end_row,
-                                 min_col=n_col, max_col=bi_col):
+    for row in sheet_b.iter_rows(min_row=cut_start_row, max_row=cut_end_row, min_col=n_col, max_col=bi_col):
         for cell in row:
             cell.value = None
             cell.fill = PatternFill()
     for col in extra_cols:
-        for row in sheet_b.iter_rows(min_row=cut_start_row, max_row=cut_end_row,
-                                     min_col=col, max_col=col):
+        for row in sheet_b.iter_rows(min_row=cut_start_row, max_row=cut_end_row, min_col=col, max_col=col):
             for cell in row:
                 cell.value = None
 
-    for row in sheet_b.iter_rows(min_row=cut_start_row, max_row=cut_end_row,
-                                min_col=akc_col, max_col=aki_col):
+    for row in sheet_b.iter_rows(min_row=cut_start_row, max_row=cut_end_row, min_col=akc_col, max_col=aki_col):
         for cell in row:
             cell.value = None
-    for row in sheet_b.iter_rows(min_row=cut_start_row, max_row=cut_end_row,
-                                min_col=akk_col, max_col=akq_col):
+    for row in sheet_b.iter_rows(min_row=cut_start_row, max_row=cut_end_row, min_col=akk_col, max_col=akq_col):
         for cell in row:
             cell.value = None
 
@@ -199,7 +234,7 @@ def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, he
         return None
 
     # Track which vessel names are UPDATED so we can avoid restoring old values
-    updated_vessel_names = set()
+    updated_key_tuples = set()
 
     # --- Copy or Update from Sheet A to Sheet B ---
     # IMPORTANT: keep this as the ORIGINAL to ensure sort range covers whole block
@@ -251,7 +286,7 @@ def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, he
                 _write_value(match_row, col_name, col_a, col_b)
 
             # mark this vessel as updated (used in restore step)
-            updated_vessel_names.add(keys_tuple)
+            updated_key_tuples.add(keys_tuple)
         else:
             # --- APPEND: write new row at current_row_b ---
             for col_name, col_letter_b in column_mapping.items():
@@ -297,7 +332,7 @@ def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, he
         )
         for row in data_rows_sorted
     ]
-    for i, vessel_name in enumerate(sorted_keys):
+    for i, keys_tuple in enumerate(sorted_keys):
         values_and_styles = cut_data_dict.get(sorted_keys[i])
         if not values_and_styles:
             continue
@@ -315,7 +350,7 @@ def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, he
                     target_cell.value = val
                 continue
 
-            if vessel_name in updated_vessel_names:
+            if keys_tuple in updated_key_tuples:
                 # For UPDATED ROWS: only restore style for N–BI, and SKIP restore value for extra_cols (BL/BM/BS)
                 if n_col <= col_idx <= bi_col:
                     # keep NEW value, restore only style
@@ -340,16 +375,17 @@ def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, he
                 if font is not None:
                     target_cell.font = font
 
-    for i, vessel_name in enumerate(sorted_keys):
-        values_dict = akc_data_dict.get(vessel_name)
+    for i, keys_tuple in enumerate(sorted_keys):
+        values_dict = akc_data_dict.get(keys_tuple)
         if not values_dict:
             continue
 
         for col_idx, val in values_dict.items():
             target_cell = sheet_b.cell(row=sort_start + i, column=col_idx)
             target_cell.value = val
-    for i, vessel_name in enumerate(sorted_keys):
-        values_dict = akk_data_dict.get(vessel_name)
+
+    for i, keys_tuple in enumerate(sorted_keys):
+        values_dict = akk_data_dict.get(keys_tuple)
         if not values_dict:
             continue
 
@@ -359,19 +395,24 @@ def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, he
 
     # --- Update Column AOG based on the prefix in Column E ---
     print("📝 Updating AOG column based on Vessel prefixes...")
+    Blue_Font = Font(color="FF0070C0")  # Biru ARGB
     for row in range(sort_start, sort_end + 1):
         col_e_val = str(sheet_b[f"E{row}"].value or "").upper().strip()
 
         match True:
             case _ if col_e_val.startswith("MV"):
                 sheet_b[f"AOG{row}"].value = 18000
+                sheet_b[f"AOG{row}"].font = Blue_Font
             case _ if col_e_val.startswith(("BG", "DUMP")):
                 sheet_b[f"AOG{row}"].value = 0
+                sheet_b[f"AOG{row}"].font = Blue_Font
             case _ if col_e_val == "":
                 sheet_b[f"AOG{row}"].value = None
+                sheet_b[f"AOG{row}"].font = Blue_Font
             case _:
                 # If nothing match, leave the cell blank.
                 sheet_b[f"AOG{row}"].value = None
+                sheet_b[f"AOG{row}"].font = Blue_Font
 
     # 📝 Default values for columns BQ and ANR if empty
     print("📝 Updating BQ (Status) and ANR (Time) if Empty...")

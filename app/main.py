@@ -1,7 +1,9 @@
 import sys
 from PyQt6.QtWidgets import QApplication
 from gui.main_gui import MainApp
+from logic.logger import start_logging
 
+start_logging()
 
 def main():
     """
@@ -18,7 +20,6 @@ def main():
 
     # Execute the Qt event loop until the application is closed
     sys.exit(app.exec())
-
 
 if __name__ == "__main__":
     # Run only if this file is executed directly (not imported as a module)

@@ -1,7 +1,7 @@
 import datetime
 
 # Custom order for loading ports
-custom_order_h = ["BoCT", "SMD Anc", "GPK Port", "Bunyut"]
+custom_order_h = ["BoCT", "SMD Anc", "Bunyut", "GPK Port"]
 
 # Prefixes used to prioritize vessel names
 custom_order_e = ["MV", "BG", "DUMP"]

@@ -11,7 +11,7 @@ def get_fill_color(cell):
 def backup_quality_rows(wb, sheet_b, backup_sheet_name="backup_complete_quality"):
     """
     Backup row with the status is 'Completed' or 'Loading' or 'In Progress'
-       - Keep Value in Column : Month (C), Company (D), Vessel (E), End User (G)
+       - Keep Value in Column : Month (C), Company (D), Vessel (E), Buyer (F), End User (G)
        - Keep also Value in Column BU–CC, AON, AOP, AOR, AOT with the fill cell color
     """
     # delete the old sheet if there is already exist
@@ -22,9 +22,9 @@ def backup_quality_rows(wb, sheet_b, backup_sheet_name="backup_complete_quality"
 
     # header
     headers = (
-        ["Month", "Company", "Vessel", "End User"]
-        + [f"Col_{col}_Val" for col in range(73, 83)]  # BU–CC (value)
-        + [f"Col_{col}_Fill" for col in range(73, 83)]  # BU–CC (fill)
+        ["Month", "Company", "Vessel", "Buyer", "End User"]
+        + [f"{col}_Val" for col in range(73, 82)]  # BU–CC (value)
+        + [f"{col}_Fill" for col in range(73, 82)]  # BU–CC (fill)
         + ["AON_Val", "AOP_Val", "AOR_Val", "AOT_Val", "AON_Fill", "AOP_Fill", "AOR_Fill", "AOT_Fill"]
     )
     ws_backup.append(headers)
@@ -34,9 +34,10 @@ def backup_quality_rows(wb, sheet_b, backup_sheet_name="backup_complete_quality"
     COL_C = 3         # Month
     COL_D = 4         # Company
     COL_E = 5         # Vessel
+    COL_F = 6         # Buyer
     COL_G = 7         # End User
     COL_BU = 73
-    COL_CC = 82
+    COL_CC = 81
     COL_AON = 1041
     COL_AOP = 1043
     COL_AOR = 1045
@@ -48,6 +49,7 @@ def backup_quality_rows(wb, sheet_b, backup_sheet_name="backup_complete_quality"
             month   = sheet_b.cell(row=row, column=COL_C).value
             company = sheet_b.cell(row=row, column=COL_D).value
             vessel  = sheet_b.cell(row=row, column=COL_E).value
+            buyer  = sheet_b.cell(row=row, column=COL_F).value
             enduser = sheet_b.cell(row=row, column=COL_G).value
 
             # take the BU–CC value
@@ -67,7 +69,7 @@ def backup_quality_rows(wb, sheet_b, backup_sheet_name="backup_complete_quality"
                 cell = sheet_b.cell(row=row, column=col)
                 values.append(cell.value)
 
-            row_data = [month, company, vessel, enduser] + values
+            row_data = [month, company, vessel, buyer, enduser] + values
             ws_backup.append(row_data)
 
             print(f"   [BACKUP-QUALITY] Row {row} backed up.")
@@ -88,9 +90,10 @@ def restore_quality_rows(wb, sheet_b, backup_sheet_name="backup_complete_quality
     COL_C = 3         # Month
     COL_D = 4         # Company
     COL_E = 5         # Vessel
+    COL_F = 6         # Buyer
     COL_G = 7         # End User
     COL_BU = 73
-    COL_CC = 82
+    COL_CC = 81
     COL_AON = 1041
     COL_AOP = 1043
     COL_AOR = 1045
@@ -101,18 +104,19 @@ def restore_quality_rows(wb, sheet_b, backup_sheet_name="backup_complete_quality
         month_bkp   = ws_backup.cell(row=row, column=1).value
         company_bkp = ws_backup.cell(row=row, column=2).value
         vessel_bkp  = ws_backup.cell(row=row, column=3).value
-        enduser_bkp = ws_backup.cell(row=row, column=4).value
+        buyer_bkp  = ws_backup.cell(row=row, column=4).value
+        enduser_bkp = ws_backup.cell(row=row, column=5).value
 
         values_bkp = [
             ws_backup.cell(row=row, column=col).value
-            for col in range(5, 5 + (COL_CC - COL_BU + 1))
+            for col in range(6, 6 + (COL_CC - COL_BU + 1))
         ]
         fills_bkp = [
             ws_backup.cell(row=row, column=col).value
-            for col in range(5 + (COL_CC - COL_BU + 1), 5 + 2*(COL_CC - COL_BU + 1))
+            for col in range(6 + (COL_CC - COL_BU + 1), 6 + 2*(COL_CC - COL_BU + 1))
         ]
 
-        start_extra = 5 + 2*(COL_CC - COL_BU + 1)
+        start_extra = 6 + 2*(COL_CC - COL_BU + 1)
         extra_vals = [
             ws_backup.cell(row=row, column=col).value
             for col in range(start_extra, start_extra + 4)
@@ -128,6 +132,7 @@ def restore_quality_rows(wb, sheet_b, backup_sheet_name="backup_complete_quality
                 sheet_b.cell(r, COL_C).value == month_bkp and
                 sheet_b.cell(r, COL_D).value == company_bkp and
                 sheet_b.cell(r, COL_E).value == vessel_bkp and
+                sheet_b.cell(r, COL_F).value == buyer_bkp and
                 sheet_b.cell(r, COL_G).value == enduser_bkp
             ):
                 # restore BU–CC
@@ -158,7 +163,7 @@ def clear_plan_fill(wb, sheet_b):
     """
     COL_BQ = 69   # Status
     COL_BU = 73
-    COL_CC = 82
+    COL_CC = 81
 
     count = 0
     for r in range(2, sheet_b.max_row + 1):
