@@ -1,4 +1,4 @@
-from openpyxl.styles import Font
+from openpyxl.styles import Font, PatternFill
 
 def apply_font_colors(sheet, start_row, end_row):
     """
@@ -59,3 +59,29 @@ def apply_font_colors(sheet, start_row, end_row):
                     strike=current_font.strike,
                     color=font_color
                 )
+
+def clear_cell_fill(wb, sheet_b):
+    """
+    Remove the fill color (make it white/default) in :
+    - Column C to G (Month, Company, Vessel, Buyer, End User)
+    - Column ANQ
+    Only if Status (BQ) is one of:
+    complete, loading, in progress, plan
+    """
+    COL_BQ = 69   # Status
+    COL_C = 3
+    COL_G = 7
+    COL_ANQ = 1057
+
+    count = 0
+
+    for r in range(2, sheet_b.max_row + 1):
+        status = str(sheet_b.cell(r, COL_BQ).value or "").strip().lower()
+
+        if status in ("completed", "loading", "in progress", "plan"):
+            for col in range(COL_C, COL_G + 1):
+                sheet_b.cell(row=r, column=col).fill = PatternFill()  # clear fill
+            sheet_b.cell(row=r, column=COL_ANQ).fill = PatternFill()
+            count += 1
+
+    print(f"[CLEAR-FILL] {count} rows are colored white (no fill) in C–G and ANQ based on Status (BQ).")
