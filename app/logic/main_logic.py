@@ -4,7 +4,7 @@ from .auto_separator import get_formula_separator
 from .move_sheet import copy_sheet_full
 from .fill_empty_with_zero import fill_empty_range_with_zero
 from .backup_restore_plan import backup_plan_rows, restore_plan_rows, clear_aon_block
-from .backup_restore_quality import backup_quality_rows, restore_quality_rows, clear_plan_fill
+from .backup_restore_quality import backup_complete_quality_rows, restore_complete_quality_rows, backup_plan_quality_rows, restore_plan_quality_rows, clear_plan_fill
 from .helpers import month_to_abbreviation, get_header_columns_a, normalize_month_block_rows, delete_or_clear_plan_rows, insert_boct_formulas, insert_mahakam_formulas
 from .renumber_blocks import renumber_month_blocks
 from .data_handler import process_data_per_month
@@ -13,6 +13,8 @@ from .month_block_finder import find_month_block
 from .dem_rate_backup import backup_dem_rate, restore_dem_rate
 from .fpg_backup import backup_fpg, restore_fpg
 from .delete_temp_sheet import delete_backup_sheets
+from .backup_restore_fill import backup_fill_by_status, restore_fill_by_status
+from .formatting import clear_cell_fill
 
 import openpyxl
 
@@ -108,7 +110,7 @@ def run_excel_process(input_file: str, output_file: str, month_start: int, month
     print(f"💾 Save changes to {input_file}...")
     wb.save(input_file)
 
-    print(f"\n 🟡 Open the 'ITM Summary' sheet as the destination sheet for the process results...")
+    print(f"\n🟡 Open the 'ITM Summary' sheet as the destination sheet for the process results...")
     sheet_b = wb['ITM Summary']
 
     # Step 3: Take the old sheet (Loading) if available
@@ -122,13 +124,16 @@ def run_excel_process(input_file: str, output_file: str, month_start: int, month
     sheet_loading_new = wb['Loading2']
     print("🟢 Sheet 'Loading2' found & ready to use.")
 
+    backup_data = {}
+
     if sheet_loading_old:
         print("🟡 Old sheet 'Loading' found, doing backup plan rows...")
         backup_plan_rows(wb, sheet_b)
-        print("\n🟡 Doing backup Quality, SOS Month, Remark of Penalty's Cause, Remark Demurrage's Cause, and Remark column in status 'complete/loading/in progress' rows...")
-        backup_quality_rows(wb, sheet_b)
+        print("\n🟡 Doing backup Quality, SOS Month, Remark of Penalty's Cause, Remark Demurrage's Cause, and Remark column in status 'Complete/Loading/In Progress' and 'Plan' rows (if exist) ...")
+        backup_complete_quality_rows(wb, sheet_b)
+        backup_plan_quality_rows(wb, sheet_b)
         delete_backup_sheets(wb, sheet_names=("dem_plan", "dem_complete"))
-        print("🟡 Backing up demurrage rates for all monthly blocks...")
+        print(f"\n🟡 Backing up demurrage rates for all monthly blocks...")
         for month_value in sorted(all_months):
             start_row, end_row = find_month_block(sheet_b, month_value)
 
@@ -142,7 +147,7 @@ def run_excel_process(input_file: str, output_file: str, month_start: int, month
             # Save range for later restore
             backup_ranges_dem_rate.append((month_value, start_row, end_row))
         delete_backup_sheets(wb, sheet_names=("FPG_plan", "FPG_comp"))
-        print("🟡 Backing up Actual Free Pratique Granted (FPG)) for all monthly blocks...")
+        print(f"\n🟡 Backing up Actual Free Pratique Granted (FPG)) for all monthly blocks...")
         for month_value in sorted(all_months):
             start_row, end_row = find_month_block(sheet_b, month_value)
 
@@ -155,6 +160,8 @@ def run_excel_process(input_file: str, output_file: str, month_start: int, month
 
             # Save range for later restore
             backup_ranges_fpg.append((month_value, start_row, end_row))
+        backup_data = backup_fill_by_status(sheet_b)
+        clear_cell_fill(wb, sheet_b)
         print("\n🟡 Doing delete or clean plan rows...")
         delete_or_clear_plan_rows(sheet_b, column_mapping, month_start, month_end)
 
@@ -170,10 +177,11 @@ def run_excel_process(input_file: str, output_file: str, month_start: int, month
         # If there is no old sheet 'loading', still perform a backup
         print("🟡 The old ‘Loading’ sheet is missing. Continue to back up plan rows....")
         backup_plan_rows(wb, sheet_b)
-        print("🟡 Doing backup Quality, SOS Month, Remark of Penalty's Cause, Remark Demurrage's Cause, and Remark column in status 'complete/loading/in progress' rows...")
-        backup_quality_rows(wb, sheet_b)
+        print(f"\n🟡 Doing backup Quality, SOS Month, Remark of Penalty's Cause, Remark Demurrage's Cause, and Remark column in status 'Complete/Loading/In Progress' and 'Plan' rows (if exist) ...")
+        backup_complete_quality_rows(wb, sheet_b)
+        backup_plan_quality_rows(wb, sheet_b)
         delete_backup_sheets(wb, sheet_names=("dem_plan", "dem_complete"))
-        print("🟡 Backing up demurrage rates for all monthly blocks...")
+        print(f"\n🟡 Backing up demurrage rates for all monthly blocks...")
         for month_value in sorted(all_months):
             start_row, end_row = find_month_block(sheet_b, month_value)
 
@@ -187,7 +195,7 @@ def run_excel_process(input_file: str, output_file: str, month_start: int, month
             # Save range for later restore
             backup_ranges_dem_rate.append((month_value, start_row, end_row))
         delete_backup_sheets(wb, sheet_names=("FPG_plan", "FPG_comp"))
-        print("🟡 Backing up Actual Free Pratique Granted (FPG)) for all monthly blocks...")
+        print(f"\n🟡 Backing up Actual Free Pratique Granted (FPG)) for all monthly blocks...")
         for month_value in sorted(all_months):
             start_row, end_row = find_month_block(sheet_b, month_value)
 
@@ -200,6 +208,8 @@ def run_excel_process(input_file: str, output_file: str, month_start: int, month
 
             # Save range for later restore
             backup_ranges_fpg.append((month_value, start_row, end_row))
+        backup_data = backup_fill_by_status(sheet_b)
+        clear_cell_fill(wb, sheet_b)
         print("🟡 Doing delete or clean plan rows...")
         delete_or_clear_plan_rows(sheet_b, column_mapping, month_start, month_end)
 
@@ -259,7 +269,9 @@ def run_excel_process(input_file: str, output_file: str, month_start: int, month
     print("🟡 Restore plan rows after processing all months...")
     clear_aon_block(sheet_b)
     restore_plan_rows(wb, sheet_b)
-    restore_quality_rows(wb, sheet_b)
+    clear_plan_fill(wb, sheet_b)
+    restore_complete_quality_rows(wb, sheet_b)
+    restore_plan_quality_rows(wb, sheet_b)
     print(f"\n 🟢 Restoring demurrage rates for all monthly blocks...")
     for month_value, start_row, end_row in backup_ranges_dem_rate:
         start_row, end_row = find_month_block(sheet_b, month_value)
@@ -269,6 +281,7 @@ def run_excel_process(input_file: str, output_file: str, month_start: int, month
         print(f"🔄 Restore Dem Rate → Month {month_value}: Row {start_row}–{end_row}")
         restore_dem_rate(sheet_b, "dem_plan", "dem_complete", start_row, end_row)
     print(f"\n 🟢 Restoring FPG Actual Value for all monthly blocks...")
+
     for month_value, start_row, end_row in backup_ranges_fpg:
         start_row, end_row = find_month_block(sheet_b, month_value)
         if not start_row or not end_row:
@@ -276,10 +289,10 @@ def run_excel_process(input_file: str, output_file: str, month_start: int, month
             continue
         print(f"🔄 Restore FPG Actual Value → Month {month_value}: Row {start_row}–{end_row}")
         restore_fpg(sheet_b, "FPG_plan", "FPG_comp", start_row, end_row)
-    clear_plan_fill(wb, sheet_b)
     apply_status_font(sheet_b)
     delete_backup_sheets(wb, sheet_names=("dem_plan", "dem_complete"))
     delete_backup_sheets(wb, sheet_names=("FPG_plan", "FPG_comp"))
+    restore_fill_by_status(sheet_b, backup_data)
     print(f"✅ Restore finished & backup sheet was Deleted\n")
 
     # Step 5: Save the result back to the input file (final output)
