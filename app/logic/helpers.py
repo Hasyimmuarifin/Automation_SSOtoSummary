@@ -270,111 +270,60 @@ formulas={
     'AOK': '=AOH{row}/2'
 }
 
-def delete_or_clear_plan_rows(sheet_b, column_mapping, month_start, month_end=None):
+def delete_or_clear_plan_rows(sheet_b, column_mapping, target_months: set[int]):
     """
-    Hapus baris dengan Status == 'Plan' hanya pada blok bulan terpilih.
-    - Jika hanya month_start diberikan → hanya 1 bulan yang dihapus.
-    - Jika month_end juga diberikan → hapus semua bulan dalam range [month_start .. month_end].
-    - Bulan di luar range hanya akan di-clear (kolom C..AOT saja).
-    
-    Deteksi header blok bulan pada kolom B (singkatan bulan: Jan, Feb, ...),
-    lalu turun 2 baris dari header untuk mulai proses hingga 100 baris di bawahnya.
+    Hapus baris dengan Status == 'Plan' pada blok bulan yang termasuk target_months.
+    Bulan di luar target_months hanya akan di-clear (kolom C..AOT).
     """
 
-    # index kolom penting
     status_col = column_index_from_string(column_mapping['Status'])
     month_header_col = column_index_from_string('B')
     start_clear_col = column_index_from_string("C")
     end_clear_col = column_index_from_string("AOT")
 
-    # Normalisasi input bulan → integer (1–12)
-    def normalize_month(m):
-        if m is None:
-            return None
-        if isinstance(m, int):
-            return m
-        sm = str(m).strip()
-        try:
-            # Full month name (e.g. January)
-            return datetime.datetime.strptime(sm, '%B').month
-        except Exception:
-            try:
-                # Short month name (e.g. Jan)
-                return datetime.datetime.strptime(sm[:3], '%b').month
-            except Exception:
-                return None
+    print(f"📌 Target months for delete: {sorted(target_months)}")
 
-    month_start = normalize_month(month_start)
-    month_end = normalize_month(month_end)
-
-    if month_start is None:
-        print("⚠️ month_start tidak valid.")
-        return
-
-    # Jika month_end tidak ada, maka hanya 1 bulan yang dianggap target
-    if not month_end:
-        month_end = month_start
-
-    # Set himpunan bulan target
-    target_months = set(range(month_start, month_end + 1))
-
-    # siapkan daftar header bulan
+    # Cari header bulan
     header_rows = []
     for r in range(1, sheet_b.max_row + 1):
         cell_val = sheet_b.cell(row=r, column=month_header_col).value
-        if not cell_val:
-            continue
         if isinstance(cell_val, str):
-            txt = cell_val.strip().lower()
-            # cek apakah dia awalan nama bulan
-            if txt[:3] in {'jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'}:
-                header_rows.append((r, txt))
+            abbr = cell_val.strip().lower()[:3]
+            if abbr in {'jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'}:
+                header_rows.append((r, abbr))
 
     if not header_rows:
         print("⚠️ Tidak ditemukan blok bulan di kolom B.")
         return
 
-    # Proses dari bawah ke atas agar indeks tidak rusak saat delete
+    # Proses dari bawah ke atas
     header_rows.sort(key=lambda x: x[0], reverse=True)
 
-    for header_row, header_txt in header_rows:
-        # identifikasi bulan pada header (3 huruf pertama)
-        month_abbr = header_txt[:3].title()
-        try:
-            header_month_num = datetime.datetime.strptime(month_abbr, "%b").month
-        except Exception:
-            continue  # skip kalau tidak valid
+    for header_row, abbr in header_rows:
+        month_num = datetime.datetime.strptime(abbr.title(), "%b").month
+        is_selected_month = month_num in target_months
 
-        # tentukan apakah bulan ini dalam range target
-        is_selected_month = header_month_num in target_months
-
-        print(f"\n📅 Processing month block: {header_txt.title()} "
+        print(f"\n📅 Processing month block: {abbr.title()} "
               f"({'TARGET' if is_selected_month else 'other'})")
 
-        # tentukan batas block
         data_start = header_row + 2
         data_end = min(sheet_b.max_row, data_start + 100 - 1)
 
         rows_to_delete = []
+
         for r in range(data_start, data_end + 1):
             status_val = sheet_b.cell(row=r, column=status_col).value
-            if not status_val:
-                continue
             if str(status_val).strip().lower() == "plan":
                 if is_selected_month:
-                    # bulan target → delete row
                     rows_to_delete.append(r)
-                    print(f"   🗑️ Delete row {r} (Status=Plan, {month_abbr})")
+                    print(f"   🗑️ Delete row {r}")
                 else:
-                    # bulan lain → clear kolom C..AOT
                     for c in range(start_clear_col, end_clear_col + 1):
                         sheet_b.cell(row=r, column=c).value = None
-                    print(f"   🧹 Clear row {r} (Status=Plan, {month_abbr})")
+                    print(f"   🧹 Clear row {r}")
 
-        # hapus baris (dari bawah ke atas)
-        if rows_to_delete:
-            for rr in reversed(rows_to_delete):
-                sheet_b.delete_rows(rr, 1)
+        for rr in reversed(rows_to_delete):
+            sheet_b.delete_rows(rr, 1)
 
     print("\n✅ delete_or_clear_plan_rows selesai.")
 
@@ -391,7 +340,7 @@ def month_to_abbreviation(month_number):
     Returns:
         str: The lowercase abbreviated month name.
     """
-    return datetime.date(2025, month_number, 1).strftime('%b').lower()
+    return datetime.date(2026, month_number, 1).strftime('%b').lower()
 
 def get_header_columns_a(sheet_a, column_mapping):
     """

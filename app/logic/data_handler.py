@@ -10,7 +10,7 @@ from .zero_handler import replace_zeros_with_none_in_sheet
 from .auto_separator import get_formula_separator
 
 
-def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, header_columns_a, column_mapping):
+def process_data_per_month(sheet_a, sheet_b, sheet_c, month_value, month_abbreviation, header_columns_a, column_mapping):
     """
     Process & transfer monthly data (no-duplicate). 
     - If (Company, Vessel name, Buyer, End user) already exists in the month block of 'ITM Summary', the row is refreshed (non-key columns cleared and refilled with latest values).
@@ -48,6 +48,7 @@ def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, he
     print(f"End row for month block {month_value} found at row: {cut_end_row}")
 
     # --- Key columns / extra columns & indexes ---
+    k_col = column_index_from_string("K")
     l_col = column_index_from_string("L")
     n_col  = column_index_from_string('N')
     bi_col = column_index_from_string('BI')
@@ -94,6 +95,21 @@ def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, he
                 # save the processed value (DO NOT use cell.value again)
                 values_and_styles[col_idx] = (val, None, None)  # value only
         cut_data_dict[key] = values_and_styles
+
+    # --- Convert Formula ke Value di Kolom K (BENAR) ---
+    for row_idx in range(cut_start_row, cut_end_row + 1):
+        cell_formula = sheet_b.cell(row=row_idx, column=k_col)
+        cell_value   = sheet_c.cell(row=row_idx, column=k_col)
+
+        if isinstance(cell_formula.value, str) and cell_formula.value.startswith("="):
+            calculated_value = cell_value.value  # HASIL KALKULASI ASLI
+
+            if calculated_value is not None:
+                cell_formula.value = calculated_value
+                print(
+                    f"   [Formula→Value] Row {row_idx}, Col K: "
+                    f"formula replaced with value {calculated_value}"
+                )
 
     # --- Backup Column L (ETD) terpisah ---
     for row_idx in range(cut_start_row, cut_end_row + 1):
@@ -258,7 +274,7 @@ def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, he
             val = sheet_a.cell(row=row, column=col_idx_a).value
             if col_name == 'Month':
                 try:
-                    date_obj = datetime.datetime(2025, int(val), 1)
+                    date_obj = datetime.datetime(2026, int(val), 1)
                     cell_b = sheet_b.cell(row=dest_row, column=col_idx_b)
                     cell_b.value = date_obj
                     cell_b.number_format = '[$-en-US]mmm;@'

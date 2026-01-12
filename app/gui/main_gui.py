@@ -100,9 +100,6 @@ class MainApp(QMainWindow, Ui_MainWindow):
         month_end = None
         if hasattr(self, "checkBox_enableNextMonth") and self.checkBox_enableNextMonth.isChecked():
             month_end = self.month_combo2.currentIndex() + 1
-            if month_end < month_start:
-                QMessageBox.warning(self, "Warning", "End month cannot be before start month!")
-                return
 
         # Disable tombol Start saat proses berjalan
         self.start_btn.setEnabled(False)
