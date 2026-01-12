@@ -15,6 +15,7 @@ from .fpg_backup import backup_fpg, restore_fpg
 from .delete_temp_sheet import delete_backup_sheets
 from .backup_restore_fill import backup_fill_by_status, restore_fill_by_status
 from .formatting import clear_cell_fill
+from .cross_year_handler import handle_cross_year_december
 
 import openpyxl
 
@@ -73,6 +74,8 @@ def run_excel_process(input_file: str, output_file: str, month_start: int, month
     # Step 2: Open the input_file (summary) workbook in the ‘Loading’ sheet to fill in the empty cells in the blending column → 0
     print(f"\n🟡 Open Workbook {input_file} to fill empty cell in sheet 'Loading' with 0")
     wb = openpyxl.load_workbook(input_file)
+    wb_value = openpyxl.load_workbook(input_file, data_only=True)
+
     for target_sheet in ["Loading", "Loading2"]:
         if target_sheet in wb.sheetnames:
             print(f"🟢 Sheet '{target_sheet}' found. Filling empty cells in column range O:AW start from row 2...")
@@ -80,16 +83,27 @@ def run_excel_process(input_file: str, output_file: str, month_start: int, month
         else:
             print(f"⚠️ Sheet '{target_sheet}' not found, skipped.")
 
-    # Decide sheet_a
+    # Decide sheet_a [Loading]
     sheet_a = wb["Loading"] if "Loading" in wb.sheetnames else wb["Loading2"]
 
-    # Load ITM Summary early
+    # Load ITM Summary early & sheet_c [ITM Summary (Value Only)]
     if "ITM Summary" not in wb.sheetnames:
         raise ValueError("Sheet 'ITM Summary' tidak ditemukan!")
     sheet_b = wb["ITM Summary"]
+    sheet_c = wb_value["ITM Summary"]
 
     # Get header columns
     header_columns_a = get_header_columns_a(sheet_a, column_mapping)
+
+    if month_end is None or month_end == month_start:
+        valid_months = {month_start}
+    elif month_end > month_start:
+        valid_months = set(range(month_start, month_end + 1))
+    else:
+        # Cross-year (Dec → Jan)
+        valid_months = set(range(month_start, 13)) | set(range(1, month_end + 1))
+
+    print(f"📌 Valid months to process: {valid_months}")
 
     # Get all unique months from sheet_a
     all_months = set()
@@ -163,7 +177,7 @@ def run_excel_process(input_file: str, output_file: str, month_start: int, month
         backup_data = backup_fill_by_status(sheet_b)
         clear_cell_fill(wb, sheet_b)
         print("\n🟡 Doing delete or clean plan rows...")
-        delete_or_clear_plan_rows(sheet_b, column_mapping, month_start, month_end)
+        delete_or_clear_plan_rows(sheet_b, column_mapping, target_months=valid_months)
 
         # --- Step: Normalization month block to 100 ---
         print("🟡 Normalization of the month block to 100 after deleting plan rows...")
@@ -211,7 +225,7 @@ def run_excel_process(input_file: str, output_file: str, month_start: int, month
         backup_data = backup_fill_by_status(sheet_b)
         clear_cell_fill(wb, sheet_b)
         print("🟡 Doing delete or clean plan rows...")
-        delete_or_clear_plan_rows(sheet_b, column_mapping, month_start, month_end)
+        delete_or_clear_plan_rows(sheet_b, column_mapping, target_months=valid_months)
 
         # --- Step: Normalization month block to 100 ---
         print("🟡 Normalization of the month block to 100 after deleting plan rows...")
@@ -230,6 +244,8 @@ def run_excel_process(input_file: str, output_file: str, month_start: int, month
     # A set to track already processed months (to avoid duplicates)
     processed_months = set()
 
+    cross_year_handled = handle_cross_year_december(sheet_a=sheet_a, sheet_b=sheet_b, sheet_c=sheet_c, valid_months=valid_months, header_columns_a=header_columns_a, column_mapping=column_mapping, month_to_abbreviation=month_to_abbreviation, process_data_per_month=process_data_per_month)
+
     # Step 5: Iterate through each row in the source sheet
     print("\n🟡 Start iterate every row in sheet 'Loading'...")
     for row in range(2, sheet_a.max_row + 1):  # Start from row 2 (skip header)
@@ -238,6 +254,9 @@ def run_excel_process(input_file: str, output_file: str, month_start: int, month
         # Validate the month value: must be an integer and not already processed
         if not isinstance(month_value, int):
             print(f"[WARNING] Row {row}: Nilai bulan tidak valid ({month_value}), dilewati.")
+            continue
+        # Skip December if already handled by cross-year logic
+        if cross_year_handled and month_value == 12:
             continue
         if month_value in processed_months:
             print(f"🟡 Row {row}: Bulan {month_value} sudah diproses, dilewati.")
@@ -252,7 +271,7 @@ def run_excel_process(input_file: str, output_file: str, month_start: int, month
 
         # Step: Process data for this month
         process_data_per_month(
-            sheet_a, sheet_b, month_value,
+            sheet_a, sheet_b, sheet_c, month_value,
             month_abbreviation, header_columns_a, column_mapping
         )
 
@@ -263,7 +282,6 @@ def run_excel_process(input_file: str, output_file: str, month_start: int, month
         insert_boct_formulas(sheet_b, month_blocks, reference_col=2, loadport_col="H")
         print("✒️ Adding the Mahakam formula (AKC & AKK) for each monthly block...")
         insert_mahakam_formulas(sheet_b, month_blocks, reference_col=2, loadport_col="H")
-        # renumber_month_blocks(sheet_b)
         print(f"🟢 Data in Month {month_value} ({month_abbreviation}) Finished Processing.")
 
     print("🟡 Restore plan rows after processing all months...")

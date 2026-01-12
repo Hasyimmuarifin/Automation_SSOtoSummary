@@ -83,7 +83,7 @@ def backup_plan_rows(wb, sheet_b, backup_sheet_name="Backup_Plan", debug=True):
 
             # debug length check before appending
             if debug:
-                print(f"   [DEBUG] row_data length={len(row_data)} expected={expected_len}. row_data head: {row_data[:8]}")
+                print(f"   [DEBUG] row_data length={len(row_data)} expected={expected_len}. row_data head: {row_data[:24]}")
 
             ws_backup.append(row_data)
 
