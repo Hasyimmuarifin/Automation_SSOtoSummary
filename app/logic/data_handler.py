@@ -96,7 +96,7 @@ def process_data_per_month(sheet_a, sheet_b, sheet_c, month_value, month_abbrevi
                 values_and_styles[col_idx] = (val, None, None)  # value only
         cut_data_dict[key] = values_and_styles
 
-    # --- Convert Formula ke Value di Kolom K (BENAR) ---
+    # --- Convert Formula ke Value di Kolom K ---
     for row_idx in range(cut_start_row, cut_end_row + 1):
         cell_formula = sheet_b.cell(row=row_idx, column=k_col)
         cell_value   = sheet_c.cell(row=row_idx, column=k_col)
@@ -494,9 +494,9 @@ def process_data_per_month(sheet_a, sheet_b, sheet_c, month_value, month_abbrevi
         berdasarkan month_val (Jan, Feb, dst).
         """
         month_row_map = {
-            "Jan": 618, "Feb": 669, "Mar": 720, "Apr": 771,
-            "May": 210, "Jun": 261, "Jul": 312, "Aug": 363,
-            "Sep": 414, "Oct": 465, "Nov": 516, "Dec": 567,
+            "Jan": 57, "Feb": 108, "Mar": 159, "Apr": 210,
+            "May": 261, "Jun": 312, "Jul": 363, "Aug": 414,
+            "Sep": 414, "Oct": 465, "Nov": 516, "Dec": 6,
         }
         # ambil nilai bulan di kolom C untuk baris tersebut
         month_val = sheet_b.cell(row=row, column=3).value
