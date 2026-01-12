@@ -1,7 +1,9 @@
 import sys
 from PyQt6.QtWidgets import QApplication
 from gui.main_gui import MainApp
+from logic.logger import start_logging
 
+start_logging()
 
 def main():
     """
