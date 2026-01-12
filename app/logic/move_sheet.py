@@ -11,8 +11,7 @@ def copy_sheet_full(source_file, target_file, sheet_name="Loading", new_name="Lo
         new_name (str): name of new loading sheet (“Loading2”)
     """
     # Run Excell App (Invisible in the Background)
-    print(f"   [START] Copy Sheet Full Process ...")
-    print(f"   [INFO] Open Excel App (visible=False)...")
+    print(f"   [START] Copy Sheet Full Process & Open Excel App (visible=False) ...")
     app = xw.App(visible=False)
     
     try:
@@ -36,7 +35,7 @@ def copy_sheet_full(source_file, target_file, sheet_name="Loading", new_name="Lo
             print(f"   [OK] Sheet '{sheet_name}' Found.")
 
         # Copy sheet from target to source, give temporary name
-        print(f"   [INFO] Copy sheet '{sheet_name}' to workbook source...")
+        print(f"\n   [INFO] Copy sheet '{sheet_name}' to workbook source...")
         sheet_target.api.Copy(Before=wb_source.sheets[0].api)
 
         # Ensure that the sheet names are consistent
@@ -44,7 +43,7 @@ def copy_sheet_full(source_file, target_file, sheet_name="Loading", new_name="Lo
         wb_source.sheets[0].name = new_name
 
         # Save the result to source_file
-        print(f"   [INFO] Saving Changes to {source_file}...")
+        print(f"   [SAVE] Saving Changes to {source_file}...")
         wb_source.save()
 
         print("   [SUCCESS] The copying process is complete..")
