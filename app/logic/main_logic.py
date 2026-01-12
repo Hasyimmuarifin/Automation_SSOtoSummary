@@ -4,11 +4,13 @@ from .auto_separator import get_formula_separator
 from .move_sheet import copy_sheet_full
 from .fill_empty_with_zero import fill_empty_range_with_zero
 from .backup_restore_plan import backup_plan_rows, restore_plan_rows, clear_aon_block
-from. backup_restore_quality import backup_quality_rows, restore_quality_rows, clear_plan_fill
+from .backup_restore_quality import backup_quality_rows, restore_quality_rows, clear_plan_fill
 from .helpers import month_to_abbreviation, get_header_columns_a, normalize_month_block_rows, delete_or_clear_plan_rows, insert_boct_formulas, insert_mahakam_formulas
 from .renumber_blocks import renumber_month_blocks
 from .data_handler import process_data_per_month
 from .apply_color_font import apply_status_font
+from .month_block_finder import find_month_block
+from .dem_rate_backup import backup_dem_rate, restore_dem_rate
 
 import openpyxl
 
@@ -74,6 +76,32 @@ def run_excel_process(input_file: str, output_file: str, month_start: int, month
         else:
             print(f"⚠️ Sheet '{target_sheet}' not found, skipped.")
 
+    # Decide sheet_a
+    sheet_a = wb_temp["Loading"] if "Loading" in wb_temp.sheetnames else wb_temp["Loading2"]
+
+    # Load ITM Summary early
+    if "ITM Summary" not in wb_temp.sheetnames:
+        raise ValueError("Sheet 'ITM Summary' tidak ditemukan!")
+    sheet_b = wb_temp["ITM Summary"]
+
+    # Get header columns
+    header_columns_a = get_header_columns_a(sheet_a, column_mapping)
+
+    # Get all unique months from sheet_a
+    all_months = set()
+    for r in range(2, sheet_a.max_row + 1):
+        val = sheet_a.cell(row=r, column=header_columns_a["Month"]).value
+        if isinstance(val, int):
+            all_months.add(val)
+
+    if not all_months:
+        raise ValueError("No valid month values found in the Loading/Loading2 sheet!")
+
+    print(f"📌 Found a unique month in the Loading sheet: {sorted(all_months)}")
+
+    # Backup range for each month that appears
+    backup_ranges = []  # to be used later during restore
+
     print(f"💾 Save changes to {input_file}...")
     wb_temp.save(input_file)
     wb_temp.close()
@@ -101,6 +129,24 @@ def run_excel_process(input_file: str, output_file: str, month_start: int, month
         backup_plan_rows(wb, sheet_b)
         print("\n🟡 Doing backup Quality, SOS Month, Remark of Penalty's Cause, Remark Demurrage's Cause, and Remark column in status 'complete/loading/in progress' rows...")
         backup_quality_rows(wb, sheet_b)
+        # ✅ Delete sheet if already exist (reset backup)
+        for sheet_name in ("dem_plan", "dem_complete"):
+            if sheet_name in wb.sheetnames:
+                print(f"\n 🗑️ Deleting old sheet: {sheet_name}")
+                del wb[sheet_name]
+        print("🟡 Backing up demurrage rates for all monthly blocks...")
+        for month_value in sorted(all_months):
+            start_row, end_row = find_month_block(sheet_b, month_value)
+
+            if not start_row or not end_row:
+                print(f"⚠️ Month Block {month_value} Not found in ITM Summary, skipped.")
+                continue
+
+            print(f"\n🔒 Backup Demurrage Rate → Month {month_value}: Row {start_row}–{end_row}")
+            backup_dem_rate(sheet_b, "dem_plan", "dem_complete", start_row, end_row)
+
+            # Save range for later restore
+            backup_ranges.append((month_value, start_row, end_row))
         print("\n🟡 Doing delete or clean plan rows...")
         delete_or_clear_plan_rows(sheet_b, column_mapping, month_start, month_end)
 
@@ -109,7 +155,7 @@ def run_excel_process(input_file: str, output_file: str, month_start: int, month
         month_blocks = renumber_month_blocks(sheet_b)
         normalize_month_block_rows(sheet_b, month_blocks, reference_col=2, renumber_func=renumber_month_blocks)
 
-        # hapus sheet lama
+        #Delete sheet old 'Loading'
         print("🗑️ Delete the old ‘Loading’ sheet...")
         wb.remove(sheet_loading_old)
     else:
@@ -118,6 +164,24 @@ def run_excel_process(input_file: str, output_file: str, month_start: int, month
         backup_plan_rows(wb, sheet_b)
         print("🟡 Doing backup Quality, SOS Month, Remark of Penalty's Cause, Remark Demurrage's Cause, and Remark column in status 'complete/loading/in progress' rows...")
         backup_quality_rows(wb, sheet_b)
+        # ✅ Delete sheet if already exist (reset backup)
+        for sheet_name in ("dem_plan", "dem_complete"):
+            if sheet_name in wb.sheetnames:
+                print(f"\n 🗑️ Deleting old sheet: {sheet_name}")
+                del wb[sheet_name]
+        print("🟡 Backing up demurrage rates for all monthly blocks...")
+        for month_value in sorted(all_months):
+            start_row, end_row = find_month_block(sheet_b, month_value)
+
+            if not start_row or not end_row:
+                print(f"⚠️ Month Block {month_value} Not found in ITM Summary, skipped.")
+                continue
+
+            print(f"🔒 Backup Demurrage Rate → Month {month_value}: Row {start_row}–{end_row}")
+            backup_dem_rate(sheet_b, "dem_plan", "dem_complete", start_row, end_row)
+
+            # Save range for later restore
+            backup_ranges.append((month_value, start_row, end_row))
         print("🟡 Doing delete or clean plan rows...")
         delete_or_clear_plan_rows(sheet_b, column_mapping, month_start, month_end)
 
@@ -178,8 +242,25 @@ def run_excel_process(input_file: str, output_file: str, month_start: int, month
     clear_aon_block(sheet_b)
     restore_plan_rows(wb, sheet_b)
     restore_quality_rows(wb, sheet_b)
+    print("🟢 Restoring demurrage rates for all monthly blocks...")
+    for month_value, start_row, end_row in backup_ranges:
+        start_row, end_row = find_month_block(sheet_b, month_value)
+        if not start_row or not end_row:
+            print(f"⚠️ Month Block {month_value} Not found in ITM Summary during restore, skipped.")
+            continue
+        print(f"🔄 Restore Dem Rate → Month {month_value}: Row {start_row}–{end_row}")
+        restore_dem_rate(sheet_b, "dem_plan", "dem_complete", start_row, end_row)
     clear_plan_fill(wb, sheet_b)
     apply_status_font(sheet_b)
+
+    # 🗑️ Cleanup: delete backup sheet after restore is complete
+    print("\n=== 🧹 CLEANUP BACKUP SHEETS ===")
+    for sheet_name in ("dem_plan", "dem_complete"):
+        if sheet_name in wb.sheetnames:
+            print(f"🗑️ Deleting sheet: {sheet_name}")
+            del wb[sheet_name]
+
+    print("✅ Restore finished & backup sheet was Deleted\n")
 
     # Step 5: Save the result back to the input file (final output)
     print(f"💾 Save the final result to a file {input_file}...")

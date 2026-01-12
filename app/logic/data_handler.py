@@ -2,7 +2,7 @@ import datetime
 import re
 from copy import copy
 from openpyxl.utils import column_index_from_string, get_column_letter
-from openpyxl.styles import PatternFill, Font, Color
+from openpyxl.styles import PatternFill, Font
 from .sorter import sort_data_rows
 from .formula import apply_translated_formulas
 from .formatting import apply_font_colors
@@ -454,6 +454,22 @@ def process_data_per_month(sheet_a, sheet_b, month_value, month_abbreviation, he
             'AOK': '=AOH{row}/2'
         }
     )
+
+    # 📝 Default values for columns AOD if FLF RockTree Eagle Variants == 15.000
+    print("📝 Updating AOD (Loading Rate) for RockTree Eagle variants...")
+    # List RockTree Eagle variants
+    target_names = {
+        "rocktree eagle",
+        "rocktree eagle - apollo",
+        "rocktree eagle-zeus"
+    }
+    for row in range(sort_start, sort_end + 1):
+        col_bs_val = str(sheet_b[f"BS{row}"].value or "").lower().strip()
+
+        # set Loading Rate to 15.000 if FLF Name is in target_names
+        match True:
+            case _ if col_bs_val in target_names:
+                sheet_b[f"AOD{row}"].value = 15000
 
     # --- Additions to create a dynamic FC Quality Master formula ---
     def build_fc_formula(col_letter, row, sheet_b, sep):
