@@ -450,7 +450,7 @@ def process_data_per_month(sheet_a, sheet_b, sheet_c, month_value, month_abbrevi
         formulas={
             # 'B': f"=ROW()-ROW($B${sort_start})+1",
             'BJ': '=IFERROR(SUM(N{row}:BI{row}),"NULL")',
-            'BO': '=(SUMIF($N$892:$BI$892,D{row},N{row}:BI{row}))/BJ{row}',
+            'BO': '=(SUMIF($N$4:$BI$4,D{row},N{row}:BI{row}))/BJ{row}',
             'AKK': '=(AOH{row}/BJ{row})*-1',
             'ANO': '=IFERROR(BJ{row}/AOA{row},0)',
             'ANQ': '=J{row}',
@@ -513,9 +513,9 @@ def process_data_per_month(sheet_a, sheet_b, sheet_c, month_value, month_abbrevi
         return (
             f"=IFERROR("
             f"INDEX(OFFSET('FC Quality Master'!$D${base_row}{sep}0{sep}0{sep}49{sep}13)"
-            f"{sep}MATCH({col_letter}$893{sep}"
+            f"{sep}MATCH({col_letter}$5{sep}"
             f"OFFSET('FC Quality Master'!$D${base_row}{sep}0{sep}0{sep}49{sep}1){sep}0)"
-            f"{sep}MATCH({col_letter}$892{sep}"
+            f"{sep}MATCH({col_letter}$4{sep}"
             f"OFFSET('FC Quality Master'!$D${base_row}{sep}0{sep}0{sep}1{sep}13){sep}0))"
             f"{sep}\"NULL\")"
         )
@@ -590,10 +590,10 @@ def process_data_per_month(sheet_a, sheet_b, sheet_c, month_value, month_abbrevi
     # (use the `sep` variable that you set a few lines above with get_formula_separator())
     # month mapping to offset
     month_offset_map = {
-        1: 4,     # Jan
-        2: 130,   # Feb
-        3: 256,   # Mar
-        4: 382,   # Apr
+        1: 132,     # Jan
+        2: 260,   # Feb
+        3: 388,   # Mar
+        4: 516,   # Apr
         5: 509,   # May
         6: 636,   # Jun
         7: 764,   # Jul
@@ -601,7 +601,7 @@ def process_data_per_month(sheet_a, sheet_b, sheet_c, month_value, month_abbrevi
         9: 1020,  # Sep
         10: 1148, # Oct
         11: 1276, # Nov
-        12: 1404, # Dec
+        12: 4, # Dec
     }
     offset_row = month_offset_map.get(month_value)
     if offset_row:
